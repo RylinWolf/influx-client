@@ -7,20 +7,36 @@ import java.util.LinkedHashMap;
 import java.util.Set;
 
 /**
+ * InfluxDB数据插入对象的抽象基类。
+ * 该类提供了向InfluxDB写入数据所需的基本结构和方法。
+ * 子类继承后，应当提供 measurement 字段值。
+ *
  * @author Rylin Wolf
  */
 @Data
 public abstract class AbstractInsertObj {
+    /** InfluxDB的度量名称，用于指定数据写入的表 */
     protected String       measurement;
+    /** 数据点的时间戳 */
     protected Instant      timestamp;
+    /** InfluxDB的标签集合，用于数据索引和查询 */
     protected InfluxTags   tags;
+    /** InfluxDB的字段集合，用于存储实际的数据值 */
     protected InfluxFields fields;
 
+    /**
+     * 使用指定的度量名称构造对象
+     *
+     * @param measurement InfluxDB的度量名称
+     */
     protected AbstractInsertObj(String measurement) {
         this.timestamp   = Instant.now();
         this.measurement = measurement;
     }
 
+    /**
+     * 默认构造函数，度量名称为null
+     */
     protected AbstractInsertObj() {
         this(null);
     }
@@ -58,26 +74,58 @@ public abstract class AbstractInsertObj {
      */
     public abstract String getMeasurement();
 
+    /**
+     * 检查指定的名称是否为标签
+     *
+     * @param name 要检查的名称
+     * @return 如果是标签返回true，否则返回false
+     */
     public boolean isTag(String name) {
         return tags.containsKey(name);
     }
 
+    /**
+     * 检查指定的名称是否为字段
+     *
+     * @param name 要检查的名称
+     * @return 如果是字段返回true，否则返回false
+     */
     public boolean isField(String name) {
         return fields.containsKey(name);
     }
 
+    /**
+     * 获取所有标签的键名集合
+     *
+     * @return 标签键名集合
+     */
     public Set<String> getTagKeys() {
         return tags.keySet();
     }
 
+    /**
+     * 获取所有字段的键名集合
+     *
+     * @return 字段键名集合
+     */
     public Set<String> getFieldKeys() {
         return fields.keySet();
     }
 
+    /**
+     * 获取字段的键值对映射
+     *
+     * @return 包含所有字段的LinkedHashMap
+     */
     public LinkedHashMap<String, Object> getFieldMap() {
         return fields.toMap();
     }
 
+    /**
+     * 获取标签的键值对映射
+     *
+     * @return 包含所有标签的LinkedHashMap
+     */
     public LinkedHashMap<String, String> getTagMap() {
         return tags.toMap();
     }

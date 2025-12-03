@@ -10,8 +10,12 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = false)
 public class TestInsertObj extends AbstractInsertObj {
+    public TestInsertObj() {
+        super("temperature");
+    }
+
     @Override
     public String getMeasurement() {
-        return "temperature";
+        return measurement;
     }
 }
