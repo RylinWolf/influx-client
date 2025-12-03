@@ -1,0 +1,3 @@
+influx:
+  database: influx_client_demo
+  url: http://localhost:8086
