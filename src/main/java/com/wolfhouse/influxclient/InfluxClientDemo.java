@@ -23,6 +23,5 @@ public class InfluxClientDemo {
         obj.addTags(InfluxTags.from("location", "New York"));
         obj.addFields(InfluxFields.from("value", 100.01));
         client.insert(obj);
-
     }
 }

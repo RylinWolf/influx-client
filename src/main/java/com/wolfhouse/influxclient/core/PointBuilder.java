@@ -4,8 +4,7 @@ import com.influxdb.v3.client.Point;
 import com.wolfhouse.influxclient.InfluxObjValidException;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 /**
  * @author Rylin Wolf
@@ -23,6 +22,14 @@ public class PointBuilder {
                     .setFields(obj.getFieldMap())
                     .setTags(obj.getTagMap())
                     .setTimestamp(obj.getTimestamp());
+    }
+
+    public static <T extends AbstractInsertObj> List<Point> buildAll(Collection<T> objs) {
+        List<Point> points = new ArrayList<>();
+        for (T obj : objs) {
+            points.add(build(obj));
+        }
+        return points;
     }
 
     public static <T extends AbstractInsertObj> boolean valid(T obj) {

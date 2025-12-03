@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.stream.Stream;
 
 /**
@@ -21,6 +22,11 @@ public class InfluxClient {
     public <T extends AbstractInsertObj> void insert(T obj) {
         log.info("写入数据...");
         client.writePoint(PointBuilder.build(obj));
+    }
+
+    public <T extends AbstractInsertObj> void insertAll(Collection<T> objs) {
+        log.info("批量写入数据...");
+        client.writePoints(PointBuilder.buildAll(objs));
     }
 
     public void test() {
