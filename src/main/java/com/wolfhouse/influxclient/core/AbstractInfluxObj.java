@@ -1,7 +1,8 @@
 package com.wolfhouse.influxclient.core;
 
 import com.wolfhouse.influxclient.exception.DuplicateFieldTagException;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -11,17 +12,18 @@ import java.util.Set;
 /**
  * InfluxDB数据映射对象的抽象基类。
  * 该类提供了向 InfluxDB 写入、查询数据所需的基本结构和方法。
- * 子类继承后，应当重写 {@link AbstractInfluxObj#getMeasurement()}方法，或通过 `super.measurement` 设置该超类的 measurement 字段值。
+ * 子类继承后，应当重写 {@link AbstractInfluxObj#tableName()} ()}方法，或通过 `super.measurement` 设置该超类的 measurement 字段值。
  * <p>
  * 该类在添加标签、字段时会进行交叉检查，确保标签和字段没有交集。
  *
  * @author Rylin Wolf
  */
-@Data
+@Getter
 public abstract class AbstractInfluxObj {
     /** InfluxDB的度量名称，用于指定数据写入的表 */
     protected final String       measurement;
     /** 数据点的时间戳 */
+    @Setter
     protected       Instant      timestamp;
     /** InfluxDB的标签集合，用于存储标签数据 */
     protected       InfluxTags   tags;
@@ -41,7 +43,7 @@ public abstract class AbstractInfluxObj {
      *
      * @param tags 要添加的标签集合，包含多个键值对形式的标签，用于标识数据的维度信息。
      */
-    public void addTags(InfluxTags tags) {
+    public final void addTags(InfluxTags tags) {
         assert tags != null : "标签对象不得为 null";
         this.addTag(tags.toMap());
     }
@@ -51,7 +53,7 @@ public abstract class AbstractInfluxObj {
      *
      * @param fields 要添加的字段集合，包含多个键值对形式的字段，用于存储数据的具体值和内容。
      */
-    public void addFields(InfluxFields fields) {
+    public final void addFields(InfluxFields fields) {
         assert fields != null : "字段对象不得为 null";
         this.addField(fields.toMap());
     }
@@ -64,7 +66,7 @@ public abstract class AbstractInfluxObj {
      * @param value 标签的值，对应指定键的具体值，存储标签的内容。
      * @return 当前对象的标签集合，包含新的标签数据。
      */
-    public InfluxTags addTag(String key, String value) {
+    public final InfluxTags addTag(String key, String value) {
         // 检查标签中是否包含该字段
         if (this.fields != null && this.fields.containsKey(key)) {
             throw new DuplicateFieldTagException(key);
@@ -85,7 +87,7 @@ public abstract class AbstractInfluxObj {
      * @param tags 要添加的标签集合，包含多个键值对形式的标签，用于标识数据的维度信息。
      * @return 添加完成后的标签集合。
      */
-    public InfluxTags addTag(Map<String, String> tags) {
+    public final InfluxTags addTag(Map<String, String> tags) {
         // 字段中是否有重复键
         if (this.fields != null) {
             Set<String> fieldKeys = this.fields.getFieldKeys();
@@ -110,7 +112,7 @@ public abstract class AbstractInfluxObj {
      * @param value 字段的值，对应指定键的具体值，存储字段的内容。
      * @return 当前对象的字段集合，包含新的字段数据。
      */
-    public InfluxFields addField(String key, Object value) {
+    public final InfluxFields addField(String key, Object value) {
         // 检查标签中是否包含该字段
         if (this.tags != null && this.tags.containsKey(key)) {
             throw new DuplicateFieldTagException(key);
@@ -131,7 +133,7 @@ public abstract class AbstractInfluxObj {
      * @param fields 要添加的字段集合，包含多个键值对形式的字段，用于存储数据的具体值和内容。
      * @return 当前对象的字段集合，包含新的字段数据。
      */
-    public InfluxFields addField(Map<String, Object> fields) {
+    public final InfluxFields addField(Map<String, Object> fields) {
         // 标签中是否有重复键
         if (this.tags != null) {
             Set<String> tagKeys = this.tags.getTagKeys();
