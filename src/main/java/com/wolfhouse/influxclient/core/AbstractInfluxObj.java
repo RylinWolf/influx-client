@@ -188,5 +188,10 @@ public abstract class AbstractInfluxObj {
         return tags.toMap();
     }
 
-
+    /**
+     * 使用当前的时间，刷新时间戳数据
+     */
+    public void refreshTimestamp() {
+        this.timestamp = Instant.now();
+    }
 }
