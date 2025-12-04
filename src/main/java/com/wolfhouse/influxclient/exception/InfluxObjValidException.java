@@ -1,4 +1,4 @@
-package com.wolfhouse.influxclient;
+package com.wolfhouse.influxclient.exception;
 
 /**
  * @author Rylin Wolf

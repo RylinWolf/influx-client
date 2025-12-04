@@ -1,7 +1,7 @@
 package com.wolfhouse.influxclient.core;
 
 import com.influxdb.v3.client.Point;
-import com.wolfhouse.influxclient.InfluxObjValidException;
+import com.wolfhouse.influxclient.exception.InfluxObjValidException;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;
