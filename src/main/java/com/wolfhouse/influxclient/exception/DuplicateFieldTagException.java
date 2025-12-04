@@ -23,4 +23,9 @@ public class DuplicateFieldTagException extends RuntimeException {
         super(message + Arrays.toString(duplicated));
         this.duplicated = duplicated;
     }
+
+    @Override
+    public String toString() {
+        return super.toString();
+    }
 }
