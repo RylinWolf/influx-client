@@ -2,7 +2,10 @@ package com.wolfhouse.influxclient.core;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * InfluxDB 存储对象标签集合
@@ -15,11 +18,11 @@ public class InfluxTags {
     private final LinkedHashMap<String, String> tags;
 
     public InfluxTags() {
-        tags = (LinkedHashMap<String, String>) Collections.synchronizedMap(new LinkedHashMap<String, String>());
+        tags = new LinkedHashMap<>();
     }
 
     private InfluxTags(Map<String, String> tags) {
-        this.tags = (LinkedHashMap<String, String>) Collections.synchronizedMap(tags);
+        this.tags = new LinkedHashMap<>(tags);
     }
 
     @SafeVarargs

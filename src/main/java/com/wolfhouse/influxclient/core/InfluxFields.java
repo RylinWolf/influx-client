@@ -2,7 +2,6 @@ package com.wolfhouse.influxclient.core;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.SequencedSet;
@@ -17,11 +16,11 @@ public class InfluxFields {
     private final LinkedHashMap<String, Object> fields;
 
     private InfluxFields(Map<String, Object> fields) {
-        this.fields = (LinkedHashMap<String, Object>) Collections.synchronizedMap(fields);
+        this.fields = new LinkedHashMap<>(fields);
     }
 
     public InfluxFields() {
-        this.fields = (LinkedHashMap<String, Object>) Collections.synchronizedMap(new LinkedHashMap<String, Object>());
+        this.fields = new LinkedHashMap<>();
     }
 
     @SafeVarargs
