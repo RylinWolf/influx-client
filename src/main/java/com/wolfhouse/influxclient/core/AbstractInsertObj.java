@@ -16,29 +16,20 @@ import java.util.Set;
 @Data
 public abstract class AbstractInsertObj {
     /** InfluxDB的度量名称，用于指定数据写入的表 */
-    protected String       measurement;
+    protected final String       measurement;
     /** 数据点的时间戳 */
-    protected Instant      timestamp;
-    /** InfluxDB的标签集合，用于数据索引和查询 */
-    protected InfluxTags   tags;
-    /** InfluxDB的字段集合，用于存储实际的数据值 */
-    protected InfluxFields fields;
-
-    /**
-     * 使用指定的度量名称构造对象
-     *
-     * @param measurement InfluxDB的度量名称
-     */
-    protected AbstractInsertObj(String measurement) {
-        this.timestamp   = Instant.now();
-        this.measurement = measurement;
-    }
+    protected       Instant      timestamp;
+    /** InfluxDB的标签集合，用于存储标签数据 */
+    protected       InfluxTags   tags;
+    /** InfluxDB的字段集合，用于存储字段数据 */
+    protected       InfluxFields fields;
 
     /**
      * 默认构造函数，度量名称为null
      */
     protected AbstractInsertObj() {
-        this(null);
+        this.timestamp   = Instant.now();
+        this.measurement = tableName();
     }
 
     /**
@@ -68,11 +59,11 @@ public abstract class AbstractInsertObj {
     }
 
     /**
-     * 获取 InfluxDB 对象对应的表名。
+     * 设置 InfluxDB 对象对应的表名
      *
      * @return 表名
      */
-    public abstract String getMeasurement();
+    protected abstract String tableName();
 
     /**
      * 检查指定的名称是否为标签
