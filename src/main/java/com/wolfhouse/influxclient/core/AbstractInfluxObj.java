@@ -1,5 +1,6 @@
 package com.wolfhouse.influxclient.core;
 
+import com.wolfhouse.influxclient.exception.DuplicateFieldTagException;
 import lombok.Data;
 
 import java.time.Instant;
@@ -11,6 +12,8 @@ import java.util.Set;
  * InfluxDB数据映射对象的抽象基类。
  * 该类提供了向 InfluxDB 写入、查询数据所需的基本结构和方法。
  * 子类继承后，应当重写 {@link AbstractInfluxObj#getMeasurement()}方法，或通过 `super.measurement` 设置该超类的 measurement 字段值。
+ * <p>
+ * 该类在添加标签、字段时会进行交叉检查，确保标签和字段没有交集。
  *
  * @author Rylin Wolf
  */
@@ -40,11 +43,7 @@ public abstract class AbstractInfluxObj {
      */
     public void addTags(InfluxTags tags) {
         assert tags != null : "标签对象不得为 null";
-        if (this.tags == null) {
-            this.tags = tags;
-            return;
-        }
-        this.tags.addAll(tags.toMap());
+        this.addTag(tags.toMap());
     }
 
     /**
@@ -54,11 +53,7 @@ public abstract class AbstractInfluxObj {
      */
     public void addFields(InfluxFields fields) {
         assert fields != null : "字段对象不得为 null";
-        if (this.fields == null) {
-            this.fields = fields;
-            return;
-        }
-        this.fields.addAll(fields.toMap());
+        this.addField(fields.toMap());
     }
 
     /**
@@ -70,6 +65,11 @@ public abstract class AbstractInfluxObj {
      * @return 当前对象的标签集合，包含新的标签数据。
      */
     public InfluxTags addTag(String key, String value) {
+        // 检查标签中是否包含该字段
+        if (this.fields != null && this.fields.containsKey(key)) {
+            throw new DuplicateFieldTagException(key);
+        }
+        // 若标签未初始化，则初始化标签对象
         if (this.tags == null) {
             this.tags = InfluxTags.from(key, value);
             return this.tags;
@@ -86,6 +86,15 @@ public abstract class AbstractInfluxObj {
      * @return 添加完成后的标签集合。
      */
     public InfluxTags addTag(Map<String, String> tags) {
+        // 字段中是否有重复键
+        if (this.fields != null) {
+            Set<String> fieldKeys = this.fields.getFieldKeys();
+            fieldKeys.retainAll(tags.keySet());
+            // 保留重复值，若不为空则说明有重复
+            if (!fieldKeys.isEmpty()) {
+                throw new DuplicateFieldTagException(fieldKeys.toArray(new String[0]));
+            }
+        }
         if (this.tags == null) {
             this.tags = InfluxTags.of(tags);
             return this.tags;
@@ -102,6 +111,11 @@ public abstract class AbstractInfluxObj {
      * @return 当前对象的字段集合，包含新的字段数据。
      */
     public InfluxFields addField(String key, Object value) {
+        // 检查标签中是否包含该字段
+        if (this.tags != null && this.tags.containsKey(key)) {
+            throw new DuplicateFieldTagException(key);
+        }
+        // 若字段未初始化，则初始化字段对象
         if (this.fields == null) {
             this.fields = InfluxFields.from(key, value);
             return this.fields;
@@ -118,6 +132,15 @@ public abstract class AbstractInfluxObj {
      * @return 当前对象的字段集合，包含新的字段数据。
      */
     public InfluxFields addField(Map<String, Object> fields) {
+        // 标签中是否有重复键
+        if (this.tags != null) {
+            Set<String> tagKeys = this.tags.getTagKeys();
+            tagKeys.retainAll(fields.keySet());
+            // 保留重复值，若不为空则说明有重复
+            if (!tagKeys.isEmpty()) {
+                throw new DuplicateFieldTagException(tagKeys.toArray(new String[0]));
+            }
+        }
         if (this.fields == null) {
             this.fields = InfluxFields.of(fields);
             return this.fields;
