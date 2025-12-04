@@ -18,6 +18,8 @@ import java.util.*;
 public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
     /** 是否为匿名构造器，即未通过泛型创建的构造器 */
     private boolean               isLambda     = false;
+    /** 查询结果中包括时间戳 */
+    private boolean               withTime     = true;
     /** 目标表名 */
     private String                measurement;
     /** 映射对象引用 */
@@ -182,6 +184,17 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
     }
 
     /**
+     * 在查询目标中添加时间字段以构建查询。
+     * 调用该方法后，查询结果将包含时间字段，常用于获取时间序列数据。
+     *
+     * @return 当前 InfluxQueryWrapper 实例，用于支持链式调用。
+     */
+    public InfluxQueryWrapper<T> withTime(boolean withTime) {
+        this.withTime = withTime;
+        return this;
+    }
+
+    /**
      * 执行构建 (终结方法)
      *
      * @return 构建后的 SQL 语句
@@ -198,12 +211,20 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
             builder.append(queryTargets.removeFirst());
             builder.append(",");
         }
-        builder.deleteCharAt(builder.length() - 1);
+        // 添加时间
+        if (withTime) {
+            builder.append("time");
+        } else {
+            builder.deleteCharAt(builder.length() - 1);
+        }
         builder.append(" FROM ").append(measurement);
-        return builder.toString();
+        return builder.toString().trim();
     }
 
     // endregion
+
+    // region 构建条件
+
 
     // region 私有方法
 
