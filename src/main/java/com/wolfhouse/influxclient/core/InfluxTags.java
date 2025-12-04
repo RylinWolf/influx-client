@@ -27,7 +27,7 @@ public class InfluxTags {
         return new InfluxTags(new LinkedHashMap<>(Map.ofEntries(tags)));
     }
 
-    public static InfluxTags of(LinkedHashMap<String, String> fields) {
+    public static InfluxTags of(Map<String, String> fields) {
         return new InfluxTags(fields);
     }
 

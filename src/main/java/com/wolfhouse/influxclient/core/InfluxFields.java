@@ -29,7 +29,7 @@ public class InfluxFields {
         return new InfluxFields(new LinkedHashMap<>(Map.ofEntries(fields)));
     }
 
-    public static InfluxFields of(LinkedHashMap<String, Object> fields) {
+    public static InfluxFields of(Map<String, Object> fields) {
         return new InfluxFields(fields);
     }
 
