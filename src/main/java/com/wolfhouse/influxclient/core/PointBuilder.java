@@ -11,7 +11,7 @@ import java.util.*;
  */
 @Slf4j
 public class PointBuilder {
-    public static <T extends AbstractInsertObj> Point build(T obj) {
+    public static <T extends AbstractInfluxObj> Point build(T obj) {
         log.debug("构建对象: {}", obj);
         // 1. 验证对象
         if (!valid(obj)) {
@@ -24,7 +24,7 @@ public class PointBuilder {
                     .setTimestamp(obj.getTimestamp());
     }
 
-    public static <T extends AbstractInsertObj> List<Point> buildAll(Collection<T> objs) {
+    public static <T extends AbstractInfluxObj> List<Point> buildAll(Collection<T> objs) {
         List<Point> points = new ArrayList<>();
         for (T obj : objs) {
             points.add(build(obj));
@@ -32,7 +32,7 @@ public class PointBuilder {
         return points;
     }
 
-    public static <T extends AbstractInsertObj> boolean valid(T obj) {
+    public static <T extends AbstractInfluxObj> boolean valid(T obj) {
         // 是否为 null
         if (obj == null) {
             throw new NullPointerException("对象不得为空!");

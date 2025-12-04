@@ -1,7 +1,7 @@
 package com.wolfhouse.influxclient.client;
 
 import com.influxdb.v3.client.internal.InfluxDBClientImpl;
-import com.wolfhouse.influxclient.core.AbstractInsertObj;
+import com.wolfhouse.influxclient.core.AbstractInfluxObj;
 import com.wolfhouse.influxclient.core.PointBuilder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,12 +19,12 @@ import java.util.stream.Stream;
 public class InfluxClient {
     public final InfluxDBClientImpl client;
 
-    public <T extends AbstractInsertObj> void insert(T obj) {
+    public <T extends AbstractInfluxObj> void insert(T obj) {
         log.info("写入数据...");
         client.writePoint(PointBuilder.build(obj));
     }
 
-    public <T extends AbstractInsertObj> void insertAll(Collection<T> objs) {
+    public <T extends AbstractInfluxObj> void insertAll(Collection<T> objs) {
         log.info("批量写入数据...");
         client.writePoints(PointBuilder.buildAll(objs));
     }
