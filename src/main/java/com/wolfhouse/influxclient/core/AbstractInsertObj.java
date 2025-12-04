@@ -4,6 +4,7 @@ import lombok.Data;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -38,6 +39,7 @@ public abstract class AbstractInsertObj {
      * @param tags 要添加的标签集合，包含多个键值对形式的标签，用于标识数据的维度信息。
      */
     public void addTags(InfluxTags tags) {
+        assert tags != null : "标签对象不得为 null";
         if (this.tags == null) {
             this.tags = tags;
             return;
@@ -51,11 +53,76 @@ public abstract class AbstractInsertObj {
      * @param fields 要添加的字段集合，包含多个键值对形式的字段，用于存储数据的具体值和内容。
      */
     public void addFields(InfluxFields fields) {
+        assert fields != null : "字段对象不得为 null";
         if (this.fields == null) {
             this.fields = fields;
             return;
         }
         this.fields.addAll(fields.toMap());
+    }
+
+    /**
+     * 向当前对象中添加一个标签键值对。如果标签集合尚未初始化，则创建新的标签集合并添加键值对。
+     * 如果标签集合已存在，则直接添加新的键值对到集合中。
+     *
+     * @param key   标签的键名，表示标签的识别符，用于标识标签名称。
+     * @param value 标签的值，对应指定键的具体值，存储标签的内容。
+     * @return 当前对象的标签集合，包含新的标签数据。
+     */
+    public InfluxTags addTag(String key, String value) {
+        if (this.tags == null) {
+            this.tags = InfluxTags.from(key, value);
+            return this.tags;
+        }
+        this.tags.add(key, value);
+        return this.tags;
+    }
+
+    /**
+     * 向当前对象中添加一组标签键值对。如果当前标签集合尚未初始化，则创建新的标签集合并添加所有给定的标签。
+     * 如果标签集合已存在，则将给定标签集合中的所有标签添加到当前集合中。
+     *
+     * @param tags 要添加的标签集合，包含多个键值对形式的标签，用于标识数据的维度信息。
+     * @return 添加完成后的标签集合。
+     */
+    public InfluxTags addTag(Map<String, String> tags) {
+        if (this.tags == null) {
+            this.tags = InfluxTags.of(tags);
+            return this.tags;
+        }
+        return this.tags.addAll(tags);
+    }
+
+    /**
+     * 向当前对象中添加一个字段键值对。如果字段集合尚未初始化，则创建新的字段集合并添加键值对。
+     * 如果字段集合已存在，则直接添加新的键值对到集合中。
+     *
+     * @param key   字段的键名，表示字段识别符，用于标识字段名称。
+     * @param value 字段的值，对应指定键的具体值，存储字段的内容。
+     * @return 当前对象的字段集合，包含新的字段数据。
+     */
+    public InfluxFields addField(String key, Object value) {
+        if (this.fields == null) {
+            this.fields = InfluxFields.from(key, value);
+            return this.fields;
+        }
+        this.fields.add(key, value);
+        return this.fields;
+    }
+
+    /**
+     * 向当前对象中添加 InfluxDB 的字段数据。如果字段集合尚未初始化，则创建新的字段集合并添加所有的字段。
+     * 如果字段集合已存在，则直接将给定字段集合中所有字段添加到当前字段集合中。
+     *
+     * @param fields 要添加的字段集合，包含多个键值对形式的字段，用于存储数据的具体值和内容。
+     * @return 当前对象的字段集合，包含新的字段数据。
+     */
+    public InfluxFields addField(Map<String, Object> fields) {
+        if (this.fields == null) {
+            this.fields = InfluxFields.of(fields);
+            return this.fields;
+        }
+        return this.fields.addAll(fields);
     }
 
     /**
