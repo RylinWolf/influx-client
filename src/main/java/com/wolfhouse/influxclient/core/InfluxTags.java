@@ -83,11 +83,7 @@ public class InfluxTags {
     public boolean containsKey(String key) {
         return tags.containsKey(key);
     }
-
-    public Set<String> keySet() {
-        return tags.keySet();
-    }
-
+    
     public LinkedHashMap<String, String> toMap() {
         return new LinkedHashMap<>(tags);
     }

@@ -3,8 +3,8 @@ package com.wolfhouse.influxclient.core;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.SequencedSet;
 
 /**
  * InfluxDB 存储对象字段集合
@@ -78,11 +78,11 @@ public class InfluxFields {
         return fields.containsKey(key);
     }
 
-    public SequencedSet<String> keySet() {
-        return fields.sequencedKeySet();
-    }
-
     public LinkedHashMap<String, Object> toMap() {
         return new LinkedHashMap<>(fields);
+    }
+
+    public LinkedHashSet<String> getFieldKeys() {
+        return new LinkedHashSet<>(fields.sequencedKeySet());
     }
 }

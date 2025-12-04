@@ -183,7 +183,7 @@ public abstract class AbstractInfluxObj {
      * @return 标签键名集合
      */
     public Set<String> getTagKeys() {
-        return tags.keySet();
+        return tags.getTagKeys();
     }
 
     /**
@@ -192,7 +192,7 @@ public abstract class AbstractInfluxObj {
      * @return 字段键名集合
      */
     public Set<String> getFieldKeys() {
-        return fields.keySet();
+        return fields.getFieldKeys();
     }
 
     /**
