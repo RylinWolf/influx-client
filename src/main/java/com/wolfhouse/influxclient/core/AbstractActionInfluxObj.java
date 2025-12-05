@@ -18,7 +18,7 @@ import java.util.Set;
  * @author Rylin Wolf
  */
 @Getter
-@ToString
+@ToString(callSuper = true)
 @SuppressWarnings({"UnusedReturnValue", "unused"})
 public abstract class AbstractActionInfluxObj extends AbstractBaseInfluxObj {
     /** InfluxDB的标签集合，用于存储标签数据 */

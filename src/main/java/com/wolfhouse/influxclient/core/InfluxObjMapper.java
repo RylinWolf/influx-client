@@ -14,6 +14,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 /**
+ * Influx 对象转换器
+ *
  * @author Rylin Wolf
  */
 @Slf4j

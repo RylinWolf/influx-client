@@ -1,13 +1,13 @@
 package com.wolfhouse.influxclient.client;
 
 import com.influxdb.v3.client.internal.InfluxDBClientImpl;
-import com.wolfhouse.influxclient.core.AbstractInfluxObj;
-import com.wolfhouse.influxclient.core.PointBuilder;
+import com.wolfhouse.influxclient.core.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
+import java.util.Map;
 import java.util.stream.Stream;
 
 /**
@@ -19,20 +19,28 @@ import java.util.stream.Stream;
 public class InfluxClient {
     public final InfluxDBClientImpl client;
 
-    public <T extends AbstractInfluxObj> void insert(T obj) {
-        log.info("写入数据...");
+    public <T extends AbstractActionInfluxObj> void insert(T obj) {
         client.writePoint(PointBuilder.build(obj));
     }
 
-    public <T extends AbstractInfluxObj> void insertAll(Collection<T> objs) {
-        log.info("批量写入数据...");
+    public <T extends AbstractActionInfluxObj> void insertAll(Collection<T> objs) {
         client.writePoints(PointBuilder.buildAll(objs));
     }
 
-    public void test() {
-        String           sql   = "select location, value, time from temperature order by time desc limit 10";
-        Stream<Object[]> query = client.query(sql);
-        query.forEach(o -> System.out.printf("| %-8s | %-8s | %-30s |%n", o[0], o[1], o[2]));
+    public Stream<Object[]> query(String sql, Map<String, Object> parameters) {
+        if (parameters != null) {
+            log.debug("执行查询: {}\n参数集: {}", sql, parameters);
+            return client.query(sql, parameters);
+        }
+        log.debug("执行查询: {}", sql);
+        return client.query(sql);
     }
 
+    public Stream<Object[]> query(InfluxQueryWrapper<?> wrapper) {
+        return query(wrapper.build(), wrapper.getConditionWrapper().getParameters());
+    }
+
+    public <T extends AbstractBaseInfluxObj> Collection<T> queryMap(InfluxQueryWrapper<?> wrapper, Class<T> clazz) {
+        return InfluxObjMapper.mapAll(query(wrapper), clazz, wrapper);
+    }
 }
