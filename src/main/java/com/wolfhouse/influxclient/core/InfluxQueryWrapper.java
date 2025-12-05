@@ -1,11 +1,15 @@
 package com.wolfhouse.influxclient.core;
 
+import com.wolfhouse.influxclient.InfluxClientConstant;
 import com.wolfhouse.influxclient.exception.NoSuchTagOrFieldException;
 import lombok.Data;
+import lombok.Getter;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 /**
  * 基于 {@link AbstractInfluxObj} 的查询构建器
@@ -17,9 +21,9 @@ import java.util.*;
 @Accessors(chain = true)
 public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
     /** 是否为匿名构造器，即未通过泛型创建的构造器 */
-    private boolean               isLambda     = false;
+    private boolean               isLambda      = false;
     /** 查询结果中包括时间戳 */
-    private boolean               withTime     = true;
+    private boolean               withTime      = true;
     /** 目标表名 */
     private String                measurement;
     /** 映射对象引用 */
@@ -29,7 +33,13 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
     /** 映射对象包含的字段约束 */
     private InfluxFields          fields;
     /** 查询目标列 */
-    private LinkedHashSet<String> queryTargets = new LinkedHashSet<>();
+    private LinkedHashSet<String> queryTargets  = new LinkedHashSet<>();
+    /** 查询条件构造器 */
+    private ConditionWrapper      conditionWrapper;
+    /** 是否已经构建过 */
+    private boolean               isBuild       = false;
+    /** 是否拥有查询条件，该值仅在构建后才有效 */
+    private boolean               isConditioned = false;
 
     // region 构造方法
 
@@ -219,13 +229,19 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
         }
         // 指定目标表
         builder.append(" FROM ").append(measurement);
-
+        // 初始化查询条件
+        this.isConditioned = false;
+        // 处理查询条件
+        if (this.conditionWrapper != null && !this.conditionWrapper.parameters.isEmpty()) {
+            // 验证查询条件字段是否存在
+            validSelectFields(this.conditionWrapper.targets);
+            // 添加查询条件
+            builder.append(" WHERE (").append(this.conditionWrapper.sql()).append(")");
+            this.isConditioned = true;
+        }
+        this.isBuild = true;
         return builder.toString().trim();
     }
-
-    // endregion
-
-    // region 构建条件
 
     // endregion
 
@@ -268,16 +284,21 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
             return;
         }
         // 获取标签、字段约束，抽象映射类确保标签、字段不会有交集
-        Set<String>  tagKeys   = this.tags.getTagKeys();
-        Set<String>  fieldKeys = this.fields.getFieldKeys();
-        List<String> targets   = new ArrayList<>(fields);
-        // 若保留的数量等同于查询字段数量，则全部存在
+        Set<String>     tagKeys     = this.tags.getTagKeys();
+        Set<String>     fieldKeys   = this.fields.getFieldKeys();
+        HashSet<String> builtinKeys = new HashSet<>(List.of(InfluxClientConstant.BUILD_IN_FIELDS));
+        List<String>    targets     = new ArrayList<>(fields);
+
+        // 获取查询字段与允许字段集的交集，若交集总数量等同于查询字段数量，则查询字段全部存在
         tagKeys.retainAll(targets);
         fieldKeys.retainAll(targets);
-        int retains = tagKeys.size() + fieldKeys.size();
+        builtinKeys.retainAll(targets);
+        int retains = tagKeys.size() + fieldKeys.size() + builtinKeys.size();
         if (retains != targets.size()) {
             // 非全部存在，拼接存在的查询字段
             tagKeys.addAll(fieldKeys);
+            // 拼接内置字段
+            tagKeys.addAll(builtinKeys);
             // 抽离不存在的查询字段
             targets.removeAll(tagKeys);
             throw new NoSuchTagOrFieldException(targets.toArray(new String[0]));
@@ -332,6 +353,150 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
         this.tags        = this.reference.getTags();
         this.fields      = this.reference.getFields();
         log.debug("【InfluxQueryWrapper】引用对象加载完毕");
+    }
+    // endregion
+
+    // region 构建条件
+
+    public ConditionWrapper where() {
+        if (conditionWrapper == null) {
+            conditionWrapper = ConditionWrapper.create(this);
+        }
+        return this.conditionWrapper;
+    }
+
+    public static class ConditionWrapper {
+        @Getter
+        private final Map<String, Object>   parameters;
+        @Getter
+        private final Set<String>           targets  = new HashSet<>();
+        private final StringBuilder         builder;
+        private       AtomicInteger         paramIdx = new AtomicInteger(0);
+        private       InfluxQueryWrapper<?> parent;
+
+        private ConditionWrapper() {
+            parameters = new HashMap<>();
+            builder    = new StringBuilder();
+        }
+
+        private static ConditionWrapper create() {
+            return new ConditionWrapper();
+        }
+
+        public static ConditionWrapper create(InfluxQueryWrapper<?> parent) {
+            ConditionWrapper wrapper = new ConditionWrapper();
+            wrapper.parent = parent;
+            return wrapper;
+        }
+
+        public ConditionWrapper and(Consumer<ConditionWrapper> consumer, boolean condition) {
+            builder.append(mayDo(condition, consumer, "AND"));
+            return this;
+        }
+
+        public ConditionWrapper and(Consumer<ConditionWrapper> consumer) {
+            return and(consumer, true);
+        }
+
+        public ConditionWrapper or(Consumer<ConditionWrapper> consumer, boolean condition) {
+            builder.append(mayDo(condition, consumer, "OR"));
+            return this;
+        }
+
+        public ConditionWrapper or(Consumer<ConditionWrapper> consumer) {
+            return or(consumer, true);
+        }
+
+        public ConditionWrapper eq(String column, Object value, boolean condition) {
+            return condition ? appendConditionAndMask(column, value, "=") : this;
+        }
+
+        public ConditionWrapper eq(String column, Object value) {
+            return eq(column, value, true);
+        }
+
+        public ConditionWrapper lt(String column, Object value, boolean condition) {
+            return condition ? appendConditionAndMask(column, value, "<") : this;
+        }
+
+        public ConditionWrapper lt(String column, Object value) {
+            return lt(column, value, true);
+        }
+
+        public ConditionWrapper gt(String column, Object value, boolean condition) {
+            return condition ? appendConditionAndMask(column, value, ">") : this;
+        }
+
+        public ConditionWrapper gt(String column, Object value) {
+            return gt(column, value, true);
+        }
+
+        public ConditionWrapper le(String column, Object value, boolean condition) {
+            return condition ? appendConditionAndMask(column, value, "<=") : this;
+        }
+
+        public ConditionWrapper le(String column, Object value) {
+            return le(column, value, true);
+        }
+
+        public ConditionWrapper ge(String column, Object value, boolean condition) {
+            return condition ? appendConditionAndMask(column, value, ">=") : this;
+        }
+
+        public ConditionWrapper ge(String column, Object value) {
+            return ge(column, value, true);
+        }
+
+        public String build() {
+            return parent.build();
+        }
+
+        public String sql() {
+            return builder.toString();
+        }
+
+        public InfluxQueryWrapper<?> parent() {
+            return parent;
+        }
+
+        private ConditionWrapper appendConditionAndMask(String column, Object value, String sqlSegment) {
+            this.builder.append(" ( ").append(column).append(" ")
+                        .append(sqlSegment)
+                        .append(" $").append(addColumnValueMapping(column, value)).append(" ) ");
+            return this;
+        }
+
+        private String addColumnValueMapping(String column, Object value) {
+            // 保存目标列名
+            this.targets.add(column);
+            // 获取值的参数占位名，保存占位符 - 注入值映射，避免 SQL 注入问题
+            String valueName = paramName();
+            this.parameters.put(valueName, value);
+            return valueName;
+        }
+
+        private String mayDo(boolean condition, Consumer<ConditionWrapper> consumer, String sqlSegment) {
+            if (!condition) {
+                return "";
+            }
+            ConditionWrapper instance = create();
+            // 同步匿名 wrapper 的上下文（参数数量）
+            instance.paramIdx = paramIdx;
+            consumer.accept(instance);
+            // 获取并添加匿名 wrapper 的处理结果
+            this.targets.addAll(instance.targets);
+            this.parameters.putAll(instance.parameters);
+            if (sqlSegment == null) {
+                return instance.sql();
+            }
+            return " %s (%s)".formatted(sqlSegment, instance.sql());
+        }
+
+        private String paramName() {
+            return "param_" + paramIdx.incrementAndGet();
+        }
+
+
     }
     // endregion
 }
