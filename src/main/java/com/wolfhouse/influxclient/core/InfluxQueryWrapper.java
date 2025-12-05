@@ -235,8 +235,9 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
         validSelectFields(queryTargets);
         StringBuilder builder = new StringBuilder();
         builder.append("SELECT ");
-        while (!queryTargets.isEmpty()) {
-            builder.append(queryTargets.removeFirst());
+        LinkedHashSet<String> targets = new LinkedHashSet<>(queryTargets);
+        while (!targets.isEmpty()) {
+            builder.append(targets.removeFirst());
             builder.append(",");
         }
         // 添加时间
