@@ -21,7 +21,7 @@ public class PointBuilder {
         return Point.measurement(obj.getMeasurement())
                     .setFields(obj.getFieldMap())
                     .setTags(obj.getTagMap())
-                    .setTimestamp(obj.getTimestamp());
+                    .setTimestamp(obj.getTime());
     }
 
     public static <T extends AbstractInfluxObj> List<Point> buildAll(Collection<T> objs) {

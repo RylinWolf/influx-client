@@ -1,8 +1,11 @@
 package com.wolfhouse.influxclient.core;
 
 import com.wolfhouse.influxclient.exception.DuplicateFieldTagException;
+import com.wolfhouse.influxclient.typehandler.InfluxTypeHandler;
+import com.wolfhouse.influxclient.typehandler.InstantTypeHandler;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.ToString;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -19,12 +22,15 @@ import java.util.Set;
  * @author Rylin Wolf
  */
 @Getter
+@ToString
+@SuppressWarnings({"UnusedReturnValue", "unused"})
 public abstract class AbstractInfluxObj {
     /** InfluxDB的度量名称，用于指定数据写入的表 */
     protected final String       measurement;
     /** 数据点的时间戳 */
     @Setter
-    protected       Instant      timestamp;
+    @InfluxTypeHandler(InstantTypeHandler.class)
+    protected       Instant      time;
     /** InfluxDB的标签集合，用于存储标签数据 */
     protected       InfluxTags   tags;
     /** InfluxDB的字段集合，用于存储字段数据 */
@@ -34,7 +40,7 @@ public abstract class AbstractInfluxObj {
      * 默认构造函数，度量名称为null
      */
     protected AbstractInfluxObj() {
-        this.timestamp   = Instant.now();
+        this.time        = Instant.now();
         this.measurement = tableName();
     }
 
@@ -217,6 +223,6 @@ public abstract class AbstractInfluxObj {
      * 使用当前的时间，刷新时间戳数据
      */
     public void refreshTimestamp() {
-        this.timestamp = Instant.now();
+        this.time = Instant.now();
     }
 }
