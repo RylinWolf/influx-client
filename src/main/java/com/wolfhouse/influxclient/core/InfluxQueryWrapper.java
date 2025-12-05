@@ -80,11 +80,15 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
         return new InfluxQueryWrapper<>(obj);
     }
 
-    public static <T extends AbstractInfluxObj> String fromBuild(T obj) {
+    public static <T extends AbstractInfluxObj> InfluxQueryWrapper<T> fromBuild(T obj) {
         InfluxQueryWrapper<T> wrapper = new InfluxQueryWrapper<>(obj);
         wrapper.selectSelfTag();
         wrapper.selectSelfField();
-        return wrapper.build();
+        return wrapper;
+    }
+
+    public static <T extends AbstractInfluxObj> String fromBuildSql(T obj) {
+        return fromBuild(obj).build();
     }
 
     /**
