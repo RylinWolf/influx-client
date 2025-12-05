@@ -12,6 +12,7 @@ public enum SqlSegmentType {
     GT(">"),
     LE("<="),
     GE(">="),
+    NE("!="),
     ;
 
     public final String value;

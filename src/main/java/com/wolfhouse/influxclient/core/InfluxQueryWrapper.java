@@ -13,43 +13,48 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 /**
- * 基于 {@link AbstractInfluxObj} 的查询构建器
+ * 基于 {@link AbstractInfluxObj} 的查询构建器。
+ * 该类用于构建InfluxDB查询语句，提供流式API来构建查询条件。
+ * 支持字段选择、条件过滤、时间戳包含等功能。
  *
  * @author Rylin Wolf
  */
 @Slf4j
 @Data
 @Accessors(chain = true)
+@SuppressWarnings({"UnusedReturnValue", "unused"})
 public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
-    /** 是否为匿名构造器，即未通过泛型创建的构造器 */
+    /** 表示当前构造器是否为匿名构造器（未通过泛型类型创建） */
     private boolean               isLambda      = false;
-    /** 查询结果中包括时间戳 */
+    /** 控制查询结果是否包含时间戳字段 */
     private boolean               withTime      = true;
-    /** 目标表名 */
+    /** 当前查询的目标表（measurement）名称 */
     private String                measurement;
-    /** 映射对象引用 */
+    /** 当前查询关联的映射对象引用，提供表结构信息 */
     private AbstractInfluxObj     reference;
-    /** 映射对象包含的标签约束 */
+    /** 当前查询涉及的标签约束集合 */
     private InfluxTags            tags;
-    /** 映射对象包含的字段约束 */
+    /** 当前查询涉及的字段约束集合 */
     private InfluxFields          fields;
-    /** 查询目标列 */
+    /** 当前查询的目标列集合，保持插入顺序 */
     private LinkedHashSet<String> queryTargets  = new LinkedHashSet<>();
-    /** 查询条件构造器 */
+    /** 当前查询的条件构造器，用于构建WHERE子句 */
     private ConditionWrapper      conditionWrapper;
-    /** 是否已经构建过 */
+    /** 标记当前查询是否已经构建完成 */
     private boolean               isBuild       = false;
-    /** 是否拥有查询条件，该值仅在构建后才有效 */
+    /** 标记当前查询是否包含WHERE条件（仅在构建后有效） */
     private boolean               isConditioned = false;
-    /** 查询条数 */
+    /** 查询结果的最大返回行数限制 */
     private Long                  limit;
 
     // region 构造方法
 
     /**
      * 构造一个带有引用对象的 InfluxQueryWrapper 实例，并初始化引用对象。
+     * 该构造方法会自动从引用对象中提取表名、标签和字段信息。
      *
-     * @param reference 被包装的引用对象，用于提供查询或构建 SQL 的相关信息。
+     * @param reference 被包装的引用对象，用于提供查询或构建SQL的相关信息。
+     *                  该对象必须是AbstractInfluxObj的子类实例，包含表名、标签和字段定义。
      */
     private InfluxQueryWrapper(T reference) {
         this.reference = reference;
@@ -58,14 +63,20 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
 
     /**
      * 构造一个 InfluxQueryWrapper 实例，并设置测量名称。
+     * 该构造方法创建一个基于表名的查询构造器，不包含预定义的标签和字段约束。
      *
      * @param measurement 测量名称，用于指定目标数据表。
+     *                    该参数不能为null或空字符串。
      */
     private InfluxQueryWrapper(String measurement) {
         measurement(measurement);
         initReference();
     }
 
+    /**
+     * 创建一个空的 InfluxQueryWrapper 实例。
+     * 用于创建匿名查询构造器。
+     */
     private InfluxQueryWrapper() {}
 
     // endregion
@@ -409,21 +420,47 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
         /** 父查询链对象 */
         private       InfluxQueryWrapper<?> parent;
 
+        /**
+         * 构造一个空的 ConditionWrapper 实例。
+         * 初始化参数映射和SQL构建器。
+         */
         private ConditionWrapper() {
             parameters = new HashMap<>();
             builder    = new StringBuilder();
         }
 
+        /**
+         * 创建一个新的 ConditionWrapper 实例。
+         * 该实例不会关联任何父查询对象。
+         *
+         * @return 返回新创建的 ConditionWrapper 实例
+         */
         private static ConditionWrapper create() {
             return new ConditionWrapper();
         }
 
+        /**
+         * 创建一个新的 ConditionWrapper 实例，并关联指定的父查询对象。
+         *
+         * @param parent 要关联的父查询对象
+         * @return 返回新创建的 ConditionWrapper 实例
+         */
         public static ConditionWrapper create(InfluxQueryWrapper<?> parent) {
             ConditionWrapper wrapper = new ConditionWrapper();
             wrapper.parent = parent;
             return wrapper;
         }
 
+        /**
+         * 使用 AND 逻辑连接新的条件。
+         * 如果condition为false，则不添加新条件。
+         * 若已有条件以 and 结尾，则不再使用 and 连接，直接使用括号构建条件块；
+         * 若已有条件为空，则也不使用 and 开头，以避免可能的语法问题。
+         *
+         * @param consumer  用于构建新条件的消费者函数
+         * @param condition 控制是否添加条件的布尔值
+         * @return 当前 ConditionWrapper 实例
+         */
         public ConditionWrapper and(Consumer<ConditionWrapper> consumer, boolean condition) {
             String currentSql = builder.toString().trim().toUpperCase();
             if (currentSql.isBlank() || currentSql.endsWith(SqlSegmentType.AND.value)) {
@@ -436,10 +473,24 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
             return this;
         }
 
+        /**
+         * 使用 AND 逻辑连接新的条件。
+         *
+         * @param consumer 用于构建新条件的消费者函数
+         * @return 当前 ConditionWrapper 实例
+         */
         public ConditionWrapper and(Consumer<ConditionWrapper> consumer) {
             return and(consumer, true);
         }
 
+        /**
+         * 使用 OR 逻辑连接新的条件。
+         * 如果condition为false，则不添加新条件。
+         *
+         * @param consumer  用于构建新条件的消费者函数
+         * @param condition 控制是否添加条件的布尔值
+         * @return 当前 ConditionWrapper 实例
+         */
         public ConditionWrapper or(Consumer<ConditionWrapper> consumer, boolean condition) {
             if (builder.toString().trim().toUpperCase().endsWith(SqlSegmentType.OR.value)) {
                 builder.append(" ( ")
@@ -450,10 +501,26 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
             return this;
         }
 
+        /**
+         * 使用 OR 逻辑连接新的条件。
+         *
+         * @param consumer 用于构建新条件的消费者函数
+         * @return 当前 ConditionWrapper 实例
+         */
         public ConditionWrapper or(Consumer<ConditionWrapper> consumer) {
             return or(consumer, true);
         }
 
+        // region 基本查询条件
+
+        /**
+         * 添加等于(=)条件。
+         *
+         * @param column    列名
+         * @param value     比较值
+         * @param condition 是否添加此条件
+         * @return 当前 ConditionWrapper 实例
+         */
         public ConditionWrapper eq(String column, Object value, boolean condition) {
             return condition ? appendConditionAndMask(column, value, SqlSegmentType.EQ) : this;
         }
@@ -462,6 +529,14 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
             return eq(column, value, true);
         }
 
+        /**
+         * 添加不等于(!=)条件。
+         *
+         * @param column    列名
+         * @param value     比较值
+         * @param condition 是否添加此条件
+         * @return 当前 ConditionWrapper 实例
+         */
         public ConditionWrapper ne(String column, Object value, boolean condition) {
             return condition ? appendConditionAndMask(column, value, SqlSegmentType.NE) : this;
         }
@@ -470,6 +545,14 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
             return ne(column, value, true);
         }
 
+        /**
+         * 添加小于(<)条件。
+         *
+         * @param column    列名
+         * @param value     比较值
+         * @param condition 是否添加此条件
+         * @return 当前 ConditionWrapper 实例
+         */
         public ConditionWrapper lt(String column, Object value, boolean condition) {
             return condition ? appendConditionAndMask(column, value, SqlSegmentType.LT) : this;
         }
@@ -478,6 +561,14 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
             return lt(column, value, true);
         }
 
+        /**
+         * 添加大于(>)条件。
+         *
+         * @param column    列名
+         * @param value     比较值
+         * @param condition 是否添加此条件
+         * @return 当前 ConditionWrapper 实例
+         */
         public ConditionWrapper gt(String column, Object value, boolean condition) {
             return condition ? appendConditionAndMask(column, value, SqlSegmentType.GT) : this;
         }
@@ -486,6 +577,14 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
             return gt(column, value, true);
         }
 
+        /**
+         * 添加小于等于(<=)条件。
+         *
+         * @param column    列名
+         * @param value     比较值
+         * @param condition 是否添加此条件
+         * @return 当前 ConditionWrapper 实例
+         */
         public ConditionWrapper le(String column, Object value, boolean condition) {
             return condition ? appendConditionAndMask(column, value, SqlSegmentType.LE) : this;
         }
@@ -494,6 +593,14 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
             return le(column, value, true);
         }
 
+        /**
+         * 添加大于等于(>=)条件。
+         *
+         * @param column    列名
+         * @param value     比较值
+         * @param condition 是否添加此条件
+         * @return 当前 ConditionWrapper 实例
+         */
         public ConditionWrapper ge(String column, Object value, boolean condition) {
             return condition ? appendConditionAndMask(column, value, SqlSegmentType.GE) : this;
         }
@@ -502,14 +609,31 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
             return ge(column, value, true);
         }
 
+        // endregion
+
+        /**
+         * 构建完整的SQL查询语句。
+         *
+         * @return 构建好的SQL查询语句
+         */
         public String build() {
             return parent.build();
         }
 
+        /**
+         * 获取当前已构建的SQL条件语句。
+         *
+         * @return 当前条件构造器中的SQL条件语句
+         */
         public String sql() {
             return builder.toString();
         }
 
+        /**
+         * 获取父查询构造器。
+         *
+         * @return 返回关联的InfluxQueryWrapper实例
+         */
         public InfluxQueryWrapper<?> parent() {
             return parent;
         }
@@ -539,6 +663,14 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
             return this;
         }
 
+        /**
+         * 将指定的列名和值映射到参数占位符，并返回生成的参数占位符名称。
+         * 此方法主要用于处理 SQL 查询中列名与参数值的绑定，避免硬编码带来的 SQL 注入风险。
+         *
+         * @param column 指定的列名，用于表示查询条件中的字段
+         * @param value  列的值，用于进行条件匹配
+         * @return 参数占位符名称，用于在 SQL 查询中代替实际值
+         */
         private String addColumnValueMapping(String column, Object value) {
             // 保存目标列名
             this.targets.add(column);
@@ -548,6 +680,14 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
             return valueName;
         }
 
+        /**
+         * 根据条件执行SQL片段构建。
+         *
+         * @param condition  是否执行构建
+         * @param consumer   构建逻辑
+         * @param sqlSegment SQL片段类型
+         * @return 构建的SQL片段
+         */
         private String mayDo(boolean condition, Consumer<ConditionWrapper> consumer, SqlSegmentType sqlSegment) {
             if (!condition) {
                 return "";
@@ -565,11 +705,14 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
             return " %s (%s)".formatted(sqlSegment.value, instance.sql());
         }
 
+        /**
+         * 生成唯一的参数名。
+         *
+         * @return 生成的参数名
+         */
         private String paramName() {
             return "param_" + paramIdx.incrementAndGet();
         }
-
-
     }
     // endregion
 }
