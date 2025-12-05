@@ -23,13 +23,13 @@ public class InfluxObjMapper {
      */
     private static final Map<Class<? extends TypeHandler<?>>, TypeHandler<?>> HANDLER_CACHE = new ConcurrentHashMap<>();
 
-    public static <T extends AbstractInfluxObj, Wrapper extends InfluxQueryWrapper<T>> List<T> mapAll(Stream<Object[]> objStream, Class<T> clazz, Wrapper wrapper) {
+    public static <T extends AbstractBaseInfluxObj, Wrapper extends InfluxQueryWrapper<?>> List<T> mapAll(Stream<Object[]> objStream, Class<T> clazz, Wrapper wrapper) {
         return objStream.map(obj -> map(obj, clazz, wrapper.getQueryTargets())).toList();
     }
 
-    public static <T extends AbstractInfluxObj> T map(Object[] obj,
-                                                      Class<T> clazz,
-                                                      SequencedCollection<String> targets) {
+    public static <T extends AbstractBaseInfluxObj> T map(Object[] obj,
+                                                          Class<T> clazz,
+                                                          SequencedCollection<String> targets) {
         try {
             // 创建目标类对象
             T t = clazz.getDeclaredConstructor().newInstance();

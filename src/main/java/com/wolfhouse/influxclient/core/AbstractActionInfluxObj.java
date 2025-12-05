@@ -1,13 +1,9 @@
 package com.wolfhouse.influxclient.core;
 
 import com.wolfhouse.influxclient.exception.DuplicateFieldTagException;
-import com.wolfhouse.influxclient.typehandler.InfluxTypeHandler;
-import com.wolfhouse.influxclient.typehandler.InstantTypeHandler;
 import lombok.Getter;
-import lombok.Setter;
 import lombok.ToString;
 
-import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -15,7 +11,7 @@ import java.util.Set;
 /**
  * InfluxDB数据映射对象的抽象基类。
  * 该类提供了向 InfluxDB 写入、查询数据所需的基本结构和方法。
- * 子类继承后，应当重写 {@link AbstractInfluxObj#tableName()} ()}方法，或通过 `super.measurement` 设置该超类的 measurement 字段值。
+ * 子类继承后，应当重写 {@link AbstractActionInfluxObj#tableName()} ()}方法，或通过 `super.measurement` 设置该超类的 measurement 字段值。
  * <p>
  * 该类在添加标签、字段时会进行交叉检查，确保标签和字段没有交集。
  *
@@ -24,24 +20,14 @@ import java.util.Set;
 @Getter
 @ToString
 @SuppressWarnings({"UnusedReturnValue", "unused"})
-public abstract class AbstractInfluxObj {
-    /** InfluxDB的度量名称，用于指定数据写入的表 */
-    protected final String       measurement;
-    /** 数据点的时间戳 */
-    @Setter
-    @InfluxTypeHandler(InstantTypeHandler.class)
-    protected       Instant      time;
+public abstract class AbstractActionInfluxObj extends AbstractBaseInfluxObj {
     /** InfluxDB的标签集合，用于存储标签数据 */
-    protected       InfluxTags   tags;
+    protected InfluxTags   tags;
     /** InfluxDB的字段集合，用于存储字段数据 */
-    protected       InfluxFields fields;
+    protected InfluxFields fields;
 
-    /**
-     * 默认构造函数，度量名称为null
-     */
-    protected AbstractInfluxObj() {
-        this.time        = Instant.now();
-        this.measurement = tableName();
+    protected AbstractActionInfluxObj() {
+        super();
     }
 
     /**
@@ -157,13 +143,6 @@ public abstract class AbstractInfluxObj {
     }
 
     /**
-     * 设置 InfluxDB 对象对应的表名
-     *
-     * @return 表名
-     */
-    protected abstract String tableName();
-
-    /**
      * 检查指定的名称是否为标签
      *
      * @param name 要检查的名称
@@ -219,10 +198,4 @@ public abstract class AbstractInfluxObj {
         return tags.toMap();
     }
 
-    /**
-     * 使用当前的时间，刷新时间戳数据
-     */
-    public void refreshTimestamp() {
-        this.time = Instant.now();
-    }
 }

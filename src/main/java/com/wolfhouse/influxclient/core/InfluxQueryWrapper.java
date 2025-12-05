@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 /**
- * 基于 {@link AbstractInfluxObj} 的查询构建器。
+ * 基于 {@link AbstractActionInfluxObj} 的查询构建器。
  * 该类用于构建InfluxDB查询语句，提供流式API来构建查询条件。
  * 支持字段选择、条件过滤、时间戳包含等功能。
  *
@@ -23,29 +23,29 @@ import java.util.function.Consumer;
 @Data
 @Accessors(chain = true)
 @SuppressWarnings({"UnusedReturnValue", "unused"})
-public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
+public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> {
     /** 表示当前构造器是否为匿名构造器（未通过泛型类型创建） */
-    private boolean               isLambda      = false;
+    private boolean                 isLambda      = false;
     /** 控制查询结果是否包含时间戳字段 */
-    private boolean               withTime      = true;
+    private boolean                 withTime      = true;
     /** 当前查询的目标表（measurement）名称 */
-    private String                measurement;
+    private String                  measurement;
     /** 当前查询关联的映射对象引用，提供表结构信息 */
-    private AbstractInfluxObj     reference;
+    private AbstractActionInfluxObj reference;
     /** 当前查询涉及的标签约束集合 */
-    private InfluxTags            tags;
+    private InfluxTags              tags;
     /** 当前查询涉及的字段约束集合 */
-    private InfluxFields          fields;
+    private InfluxFields            fields;
     /** 当前查询的目标列集合，保持插入顺序 */
-    private LinkedHashSet<String> queryTargets  = new LinkedHashSet<>();
+    private LinkedHashSet<String>   queryTargets  = new LinkedHashSet<>();
     /** 当前查询的条件构造器，用于构建WHERE子句 */
-    private ConditionWrapper<T>   conditionWrapper;
+    private ConditionWrapper<T>     conditionWrapper;
     /** 标记当前查询是否已经构建完成 */
-    private boolean               isBuild       = false;
+    private boolean                 isBuild       = false;
     /** 标记当前查询是否包含WHERE条件（仅在构建后有效） */
-    private boolean               isConditioned = false;
+    private boolean                 isConditioned = false;
     /** 查询结果的最大返回行数限制 */
-    private Long                  limit;
+    private Long                    limit;
 
     // region 构造方法
 
@@ -84,24 +84,42 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
     // region 获取实例
 
     /**
-     * 从指定的 {@link AbstractInfluxObj} 对象创建并初始化一个 {@link InfluxQueryWrapper} 实例。
+     * 从指定的 {@link AbstractActionInfluxObj} 对象创建并初始化一个 {@link InfluxQueryWrapper} 实例。
      *
-     * @param obj 提供初始化数据的对象，该对象必须继承自 {@link AbstractInfluxObj}。
+     * @param obj 提供初始化数据的对象，该对象必须继承自 {@link AbstractActionInfluxObj}。
      *            通过调用该对象的 {@code getMeasurement()} 方法获得测量名称。
      * @return 初始化好的 {@link InfluxQueryWrapper} 实例，其中包含传入对象的测量名称。
      */
-    public static <T extends AbstractInfluxObj> InfluxQueryWrapper<T> from(T obj) {
+    public static <T extends AbstractActionInfluxObj> InfluxQueryWrapper<T> from(T obj) {
         return new InfluxQueryWrapper<>(obj);
     }
 
-    public static <T extends AbstractInfluxObj> InfluxQueryWrapper<T> fromBuild(T obj) {
+    /**
+     * 从指定的 {@code AbstractActionInfluxObj} 对象创建并初始化一个 {@code InfluxQueryWrapper} 实例。
+     * 此方法会在创建过程中自动选择该对象的标记和字段，便于快速构造查询配置。
+     *
+     * @param <T> 泛型类型，必须为 {@code AbstractActionInfluxObj} 的子类，用于泛化查询的目标对象。
+     * @param obj 提供初始化数据的对象，该对象包含测量名称、标记和字段信息。不能为 {@code null}，否则会引发空指针异常。
+     * @return 一个基于传入对象初始化的 {@code InfluxQueryWrapper} 实例。
+     */
+    public static <T extends AbstractActionInfluxObj> InfluxQueryWrapper<T> fromBuild(T obj) {
         InfluxQueryWrapper<T> wrapper = new InfluxQueryWrapper<>(obj);
         wrapper.selectSelfTag();
         wrapper.selectSelfField();
         return wrapper;
     }
 
-    public static <T extends AbstractInfluxObj> String fromBuildSql(T obj) {
+    /**
+     * 根据传入的 {@link AbstractActionInfluxObj} 对象构建 SQL 查询语句。
+     * 该方法首先通过 {@link #fromBuild(AbstractActionInfluxObj)} 方法构造查询对象，
+     * 然后调用查询对象的 {@code build()} 方法生成最终的 SQL 查询语句。
+     *
+     * @param <T> 泛型类型，必须为 {@code AbstractActionInfluxObj} 的子类，用于表示查询目标对象的具体类型。
+     * @param obj 提供初始化数据的对象，该对象包含测量名称、标签和字段信息。
+     *            该参数不能为空，否则会引发空指针异常。
+     * @return 生成的SQL查询语句，基于传入对象的测量名称、标签和字段构建。
+     */
+    public static <T extends AbstractActionInfluxObj> String fromBuildSql(T obj) {
         return fromBuild(obj).build();
     }
 
@@ -344,7 +362,7 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
         if (this.reference == null) {
             log.debug("【InfluxQueryWrapper】引用对象为空，尝试初始化...");
             String m = this.measurement;
-            this.reference = new AbstractInfluxObj() {
+            this.reference = new AbstractActionInfluxObj() {
                 @Override
                 protected String tableName() {
                     return m;
@@ -409,7 +427,7 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
      * - 用于复杂 SQL 查询条件的动态拼接。
      * - 结合 InfluxQueryWrapper 一起使用，生成完整的 SQL 查询语句。
      */
-    public static class ConditionWrapper<T extends AbstractInfluxObj> {
+    public static class ConditionWrapper<T extends AbstractActionInfluxObj> {
         /** 查询条件参数与值映射 */
         @Getter
         private final Map<String, Object>   parameters;
@@ -447,7 +465,7 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
          * @param parent 要关联的父查询对象
          * @return 返回新创建的 ConditionWrapper 实例
          */
-        public static <T extends AbstractInfluxObj> ConditionWrapper<T> create(InfluxQueryWrapper<T> parent) {
+        public static <T extends AbstractActionInfluxObj> ConditionWrapper<T> create(InfluxQueryWrapper<T> parent) {
             ConditionWrapper<T> wrapper = new ConditionWrapper<>();
             wrapper.parent = parent;
             return wrapper;
