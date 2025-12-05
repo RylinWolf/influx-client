@@ -115,8 +115,8 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
     // region 构建查询
 
     /**
-     * 设置查询中需要返回的字段列表。
-     * 该方法会验证传入的字段是否有效，并将其添加到内部的查询目标字段队列中。
+     * 设置查询的目标字段列表。
+     * 该方法会将其添加到内部的查询目标字段队列中。
      *
      * @param fields 查询的字段列表，表示需要在返回结果中包含的字段名称。
      *               字段列表中的字段名必须存在于标签集合或字段集合中，否则会触发验证异常。
@@ -125,24 +125,19 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
      */
     public InfluxQueryWrapper<T> select(String... fields) {
         List<String> fieldList = Arrays.asList(fields);
-        // 验证查询字段
-        validSelectFields(fieldList);
         fieldList.forEach(this.queryTargets::addLast);
         return this;
     }
 
     /**
      * 选择指定的字段以构建查询。
-     * 方法会验证字段是否合法后，将字段添加到查询目标列表中。
+     * 方法会将字段添加到查询目标列表中。
      *
      * @param fields 包含多个字段的 {@code InfluxFields} 对象，用于定义查询中选择的字段集合。
-     *               通过 {@code fields.getFieldKeys()} 获取字段名列表，用来校验其有效性。
+     *               通过 {@code fields.getFieldKeys()} 获取字段名列表，将其添加入查询目标。
      * @return 经过字段添加后的 {@code InfluxQueryWrapper<T>} 实例，用于链式调用。
-     * @throws NoSuchTagOrFieldException 如果字段校验不通过，则抛出此异常，指明无效字段。
      */
     public InfluxQueryWrapper<T> select(InfluxFields fields) {
-        // 验证查询字段
-        validSelectFields(fields.getFieldKeys());
         fields.getFieldKeys().forEach(this.queryTargets::addLast);
         return this;
     }
@@ -154,11 +149,8 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
      * @param tags 查询所需的标签集合，包含所有所需的键值对。
      *             标签键集合通过调用 {@code tags.getTagKeys()} 方法获取。
      * @return 当前 InfluxQueryWrapper 实例，用于链式调用。
-     * @throws NoSuchTagOrFieldException 如果指定的标签集合中的键不存在于有效的标签集合中。
      */
     public InfluxQueryWrapper<T> select(InfluxTags tags) {
-        // 验证查询字段
-        validSelectFields(tags.getTagKeys());
         tags.getTagKeys().forEach(this.queryTargets::addLast);
         return this;
     }
@@ -194,10 +186,16 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
         return this;
     }
 
+    // endregion
+
+    // region 执行构建 终结方法
+
     /**
-     * 执行构建 (终结方法)
+     * 终结方法，根据 {@link InfluxQueryWrapper#queryTargets}内指定的查询目标，
+     * 构建查询语句。此方法会首先验证目标表是否配置，验证目标字段是否存在（若非匿名查询链）。
      *
      * @return 构建后的 SQL 语句
+     * @throws NoSuchTagOrFieldException 如果字段校验不通过，则抛出此异常，指明无效字段。
      */
     public String build() {
         // 验证参数
@@ -205,6 +203,8 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
             log.warn("【InfluxQueryWrapper】未构建查询语句，因为没有查询参数");
             return null;
         }
+        // 验证查询目标
+        validSelectFields(queryTargets);
         StringBuilder builder = new StringBuilder();
         builder.append("SELECT ");
         while (!queryTargets.isEmpty()) {
@@ -217,7 +217,9 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
         } else {
             builder.deleteCharAt(builder.length() - 1);
         }
+        // 指定目标表
         builder.append(" FROM ").append(measurement);
+
         return builder.toString().trim();
     }
 
@@ -225,6 +227,7 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
 
     // region 构建条件
 
+    // endregion
 
     // region 私有方法
 
