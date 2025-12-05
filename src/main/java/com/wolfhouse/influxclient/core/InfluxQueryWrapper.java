@@ -1,6 +1,7 @@
 package com.wolfhouse.influxclient.core;
 
 import com.wolfhouse.influxclient.InfluxClientConstant;
+import com.wolfhouse.influxclient.constant.SqlSegmentType;
 import com.wolfhouse.influxclient.exception.NoSuchTagOrFieldException;
 import lombok.Data;
 import lombok.Getter;
@@ -40,6 +41,8 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
     private boolean               isBuild       = false;
     /** 是否拥有查询条件，该值仅在构建后才有效 */
     private boolean               isConditioned = false;
+    /** 查询条数 */
+    private Long                  limit;
 
     // region 构造方法
 
@@ -362,6 +365,12 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
 
     // region 构建条件
 
+    /**
+     * 如果当前条件封装对象为空，则初始化一个新的 {@code ConditionWrapper} 实例，绑定到当前对象。
+     * 若已有条件封装对象，则直接返回该对象。
+     *
+     * @return 返回当前对象关联的 {@code ConditionWrapper} 实例，用于管理查询的条件逻辑。
+     */
     public ConditionWrapper where() {
         if (conditionWrapper == null) {
             conditionWrapper = ConditionWrapper.create(this);
@@ -369,13 +378,35 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
         return this.conditionWrapper;
     }
 
+    /**
+     * ConditionWrapper 是一个静态内部类，用于组装 SQL 条件查询的构造工具。
+     * 该类提供多种方法来构建 AND、OR 逻辑和比较运算符（如 =、<、> 等）条件。
+     * 通过动态绑定参数和目标列名称，帮助避免 SQL 注入问题。
+     * <p>
+     * 注意：
+     * 1. 该类的实例不可直接创建，仅支持通过静态方法 `create()` 或 `create(InfluxQueryWrapper<?>)` 创建。
+     * 2. 支持拼接复杂的条件查询，并能获取到最终拼接的 SQL 语句片段。
+     * <p>
+     * 方法特性：
+     * - 支持链式调用以构建条件查询。
+     * - 提供针对列和参数的安全绑定，避免硬编码风险。
+     * - 支持条件流控制，通过布尔值动态决定是否添加条件。
+     * <p>
+     * 使用场景：
+     * - 用于复杂 SQL 查询条件的动态拼接。
+     * - 结合 InfluxQueryWrapper 一起使用，生成完整的 SQL 查询语句。
+     */
     public static class ConditionWrapper {
+        /** 查询条件参数与值映射 */
         @Getter
         private final Map<String, Object>   parameters;
+        /** 查询条件的目标字段 */
         @Getter
         private final Set<String>           targets  = new HashSet<>();
         private final StringBuilder         builder;
+        /** 查询条件参数数量 */
         private       AtomicInteger         paramIdx = new AtomicInteger(0);
+        /** 父查询链对象 */
         private       InfluxQueryWrapper<?> parent;
 
         private ConditionWrapper() {
@@ -394,7 +425,12 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
         }
 
         public ConditionWrapper and(Consumer<ConditionWrapper> consumer, boolean condition) {
-            builder.append(mayDo(condition, consumer, "AND"));
+            if (builder.toString().trim().toUpperCase().endsWith(SqlSegmentType.AND.value)) {
+                builder.append(" ( ")
+                       .append(mayDo(condition, consumer, null))
+                       .append(" ) ");
+            }
+            builder.append(mayDo(condition, consumer, SqlSegmentType.AND));
             return this;
         }
 
@@ -403,7 +439,12 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
         }
 
         public ConditionWrapper or(Consumer<ConditionWrapper> consumer, boolean condition) {
-            builder.append(mayDo(condition, consumer, "OR"));
+            if (builder.toString().trim().toUpperCase().endsWith(SqlSegmentType.OR.value)) {
+                builder.append(" ( ")
+                       .append(mayDo(condition, consumer, null))
+                       .append(" ) ");
+            }
+            builder.append(mayDo(condition, consumer, SqlSegmentType.OR));
             return this;
         }
 
@@ -412,7 +453,7 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
         }
 
         public ConditionWrapper eq(String column, Object value, boolean condition) {
-            return condition ? appendConditionAndMask(column, value, "=") : this;
+            return condition ? appendConditionAndMask(column, value, SqlSegmentType.EQ) : this;
         }
 
         public ConditionWrapper eq(String column, Object value) {
@@ -420,7 +461,7 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
         }
 
         public ConditionWrapper lt(String column, Object value, boolean condition) {
-            return condition ? appendConditionAndMask(column, value, "<") : this;
+            return condition ? appendConditionAndMask(column, value, SqlSegmentType.LT) : this;
         }
 
         public ConditionWrapper lt(String column, Object value) {
@@ -428,7 +469,7 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
         }
 
         public ConditionWrapper gt(String column, Object value, boolean condition) {
-            return condition ? appendConditionAndMask(column, value, ">") : this;
+            return condition ? appendConditionAndMask(column, value, SqlSegmentType.GT) : this;
         }
 
         public ConditionWrapper gt(String column, Object value) {
@@ -436,7 +477,7 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
         }
 
         public ConditionWrapper le(String column, Object value, boolean condition) {
-            return condition ? appendConditionAndMask(column, value, "<=") : this;
+            return condition ? appendConditionAndMask(column, value, SqlSegmentType.LE) : this;
         }
 
         public ConditionWrapper le(String column, Object value) {
@@ -444,7 +485,7 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
         }
 
         public ConditionWrapper ge(String column, Object value, boolean condition) {
-            return condition ? appendConditionAndMask(column, value, ">=") : this;
+            return condition ? appendConditionAndMask(column, value, SqlSegmentType.GE) : this;
         }
 
         public ConditionWrapper ge(String column, Object value) {
@@ -463,10 +504,20 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
             return parent;
         }
 
-        private ConditionWrapper appendConditionAndMask(String column, Object value, String sqlSegment) {
+        private ConditionWrapper appendConditionAndMask(String column, Object value, SqlSegmentType sqlSegment) {
+            // 若前文有内容，则自动拼接 and 条件，以支持基本条件的链式调用
+            boolean and = false;
+            if (!this.builder.toString().trim().isEmpty()) {
+                and = true;
+                this.builder.append(" AND ( ");
+            }
             this.builder.append(" ( ").append(column).append(" ")
-                        .append(sqlSegment)
+                        .append(sqlSegment.value)
                         .append(" $").append(addColumnValueMapping(column, value)).append(" ) ");
+            // 若拼接 and 条件，则闭合括号
+            if (and) {
+                this.builder.append(" ) ");
+            }
             return this;
         }
 
@@ -479,7 +530,7 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
             return valueName;
         }
 
-        private String mayDo(boolean condition, Consumer<ConditionWrapper> consumer, String sqlSegment) {
+        private String mayDo(boolean condition, Consumer<ConditionWrapper> consumer, SqlSegmentType sqlSegment) {
             if (!condition) {
                 return "";
             }
@@ -493,7 +544,7 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
             if (sqlSegment == null) {
                 return instance.sql();
             }
-            return " %s (%s)".formatted(sqlSegment, instance.sql());
+            return " %s (%s)".formatted(sqlSegment.value, instance.sql());
         }
 
         private String paramName() {
