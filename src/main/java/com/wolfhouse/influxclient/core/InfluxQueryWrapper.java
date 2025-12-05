@@ -425,10 +425,12 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
         }
 
         public ConditionWrapper and(Consumer<ConditionWrapper> consumer, boolean condition) {
-            if (builder.toString().trim().toUpperCase().endsWith(SqlSegmentType.AND.value)) {
+            String currentSql = builder.toString().trim().toUpperCase();
+            if (currentSql.isBlank() || currentSql.endsWith(SqlSegmentType.AND.value)) {
                 builder.append(" ( ")
                        .append(mayDo(condition, consumer, null))
                        .append(" ) ");
+                return this;
             }
             builder.append(mayDo(condition, consumer, SqlSegmentType.AND));
             return this;
@@ -458,6 +460,14 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
 
         public ConditionWrapper eq(String column, Object value) {
             return eq(column, value, true);
+        }
+
+        public ConditionWrapper ne(String column, Object value, boolean condition) {
+            return condition ? appendConditionAndMask(column, value, SqlSegmentType.NE) : this;
+        }
+
+        public ConditionWrapper ne(String column, Object value) {
+            return ne(column, value, true);
         }
 
         public ConditionWrapper lt(String column, Object value, boolean condition) {
@@ -504,6 +514,14 @@ public class InfluxQueryWrapper<T extends AbstractInfluxObj> {
             return parent;
         }
 
+        /**
+         * 在已有条件的基础上追加一个带有指定操作符的条件，并根据已存在的条件自动添加 "AND" 连接符。
+         *
+         * @param column     指定的列名，用于表示查询条件中的字段
+         * @param value      列的值，用于进行条件匹配
+         * @param sqlSegment 条件操作符，表示具体的 SQL 比较逻辑 (如 "=", "<", ">=" 等)
+         * @return 当前 ConditionWrapper 实例，用于支持链式调用
+         */
         private ConditionWrapper appendConditionAndMask(String column, Object value, SqlSegmentType sqlSegment) {
             // 若前文有内容，则自动拼接 and 条件，以支持基本条件的链式调用
             boolean and = false;
