@@ -242,6 +242,15 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
     }
 
     /**
+     * 查询当前对象自身的标签及字段
+     *
+     * @return 当前 InfluxQueryWrapper 实例，用于支持链式调用
+     */
+    public InfluxQueryWrapper<T> selectAll() {
+        return selectSelfTag().selectSelfField();
+    }
+
+    /**
      * 在查询目标中添加时间字段以构建查询。
      * 调用该方法后，查询结果将包含时间字段，常用于获取时间序列数据。
      *
@@ -270,6 +279,11 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
         return res;
     }
 
+    /**
+     * 构建目标字段部分的查询语句。
+     *
+     * @param builder 用于构建查询语句的 {@code StringBuilder} 实例
+     */
     @Override
     protected void buildTarget(StringBuilder builder) {
         builder.append("SELECT ");
@@ -294,7 +308,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
         }
         // 添加时间
         if (withTime && !queryTargets.contains(TIMESTAMP_FIELD)) {
-            aliasMap.putFirst(TIMESTAMP_FIELD, null);
+            aliasMap.putLast(TIMESTAMP_FIELD, null);
             builder.append(TIMESTAMP_FIELD);
         } else {
             builder.deleteCharAt(builder.length() - 1);
