@@ -25,10 +25,31 @@ public class InfluxObjMapper {
      */
     private static final Map<Class<? extends TypeHandler<?>>, TypeHandler<?>> HANDLER_CACHE = new ConcurrentHashMap<>();
 
+    /**
+     * 将一个对象数组流映射为指定类型的对象实例列表。
+     *
+     * @param <T>       指定的目标类型，必须继承自 AbstractBaseInfluxObj
+     * @param <Wrapper> 包装类类型，必须继承自 InfluxQueryWrapper
+     * @param objStream 对象数组流，每个数组表示一个记录的数据
+     * @param clazz     目标类的 Class 对象，用于反射实例化目标类型对象
+     * @param wrapper   查询包装器，用于获取映射的字段名称集合
+     * @return 映射后的目标类型对象列表
+     * @throws RuntimeException 如果映射失败、无法实例化目标对象或其他错误发生时抛出
+     */
     public static <T extends AbstractBaseInfluxObj, Wrapper extends InfluxQueryWrapper<?>> List<T> mapAll(Stream<Object[]> objStream, Class<T> clazz, Wrapper wrapper) {
         return objStream.map(obj -> map(obj, clazz, wrapper.getQueryTargets())).toList();
     }
 
+    /**
+     * 将一个对象数组映射为指定类型的对象实例。
+     *
+     * @param <T>     指定的目标类型，必须继承自 {@link AbstractBaseInfluxObj}
+     * @param obj     用于映射的对象数组
+     * @param clazz   目标类的 Class 对象
+     * @param targets 字段名称集合，用于指定映射时的字段顺序，需与对象数组的元素数量一致
+     * @return 映射后的目标类型对象
+     * @throws RuntimeException 如果字段注入失败、无法实例化目标对象或其他错误发生时抛出
+     */
     public static <T extends AbstractBaseInfluxObj> T map(Object[] obj,
                                                           Class<T> clazz,
                                                           SequencedCollection<String> targets) {

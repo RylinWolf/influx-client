@@ -11,6 +11,18 @@ import java.util.*;
  */
 @Slf4j
 public class PointBuilder {
+    /**
+     * 构建一个与指定InfluxDB数据对象相关联的Point实例。
+     * 首先验证传入对象是否合法，如果验证失败则抛出异常。
+     * 验证通过后，根据对象的测量值、字段、标签及时间戳，构建并返回一个Point对象。
+     *
+     * @param <T> 继承自AbstractActionInfluxObj的InfluxDB数据对象类型
+     * @param obj 要进行构建的InfluxDB数据对象
+     * @return 构建的Point实例
+     * @throws InfluxObjValidException  如果对象验证未通过
+     * @throws NullPointerException     如果传入的对象为null
+     * @throws IllegalArgumentException 如果对象的字段和标签中存在重复的键
+     */
     public static <T extends AbstractActionInfluxObj> Point build(T obj) {
         log.debug("构建对象: {}", obj);
         // 1. 验证对象
@@ -24,6 +36,17 @@ public class PointBuilder {
                     .setTimestamp(obj.getTime());
     }
 
+    /**
+     * 构建并返回一个包含多个Point实例的列表，每个Point实例与输入的InfluxDB数据对象集合中的一个对象对应。
+     * 调用此方法前会对传入对象集合中的每个对象进行验证，验证通过后执行Point构建操作。
+     *
+     * @param <T>  继承自AbstractActionInfluxObj的InfluxDB数据对象类型
+     * @param objs 要构建Point实例的InfluxDB数据对象集合
+     * @return 一个包含所有构建完成的Point实例的列表
+     * @throws InfluxObjValidException  如果对象验证未通过
+     * @throws NullPointerException     如果输入集合或其中的对象为null
+     * @throws IllegalArgumentException 如果对象集合中的对象字段和标签中有重复的键
+     */
     public static <T extends AbstractActionInfluxObj> List<Point> buildAll(Collection<T> objs) {
         List<Point> points = new ArrayList<>();
         for (T obj : objs) {
