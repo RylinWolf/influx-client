@@ -6,7 +6,7 @@
 
     <groupId>com.wolfhouse</groupId>
     <artifactId>influxclient</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0-ALPHA</version>
     <packaging>jar</packaging>
 
     <parent>
