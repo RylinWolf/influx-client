@@ -1,6 +1,6 @@
 package com.wolfhouse.influxclient.core;
 
-import com.wolfhouse.influxclient.sqlbuilder.InfluxQueryWrapper;
+import com.wolfhouse.influxclient.pojo.AbstractBaseInfluxObj;
 import com.wolfhouse.influxclient.typehandler.InfluxTypeHandler;
 import com.wolfhouse.influxclient.typehandler.TypeHandler;
 import lombok.extern.slf4j.Slf4j;

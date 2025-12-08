@@ -1,10 +1,10 @@
-package com.wolfhouse.influxclient.sqlbuilder;
+package com.wolfhouse.influxclient.core;
 
 import com.wolfhouse.influxclient.InfluxClientConstant;
-import com.wolfhouse.influxclient.core.AbstractActionInfluxObj;
-import com.wolfhouse.influxclient.core.InfluxFields;
-import com.wolfhouse.influxclient.core.InfluxTags;
 import com.wolfhouse.influxclient.exception.NoSuchTagOrFieldException;
+import com.wolfhouse.influxclient.pojo.AbstractActionInfluxObj;
+import com.wolfhouse.influxclient.pojo.InfluxFields;
+import com.wolfhouse.influxclient.pojo.InfluxTags;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;

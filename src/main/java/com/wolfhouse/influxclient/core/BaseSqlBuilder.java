@@ -1,4 +1,4 @@
-package com.wolfhouse.influxclient.sqlbuilder;
+package com.wolfhouse.influxclient.core;
 
 /**
  * SQL 构造器模板类，规范 SQL 构建的方法步骤

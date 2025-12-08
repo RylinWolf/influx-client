@@ -1,4 +1,4 @@
-package com.wolfhouse.influxclient.core;
+package com.wolfhouse.influxclient.pojo;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -83,7 +83,7 @@ public class InfluxTags {
     public boolean containsKey(String key) {
         return tags.containsKey(key);
     }
-    
+
     public LinkedHashMap<String, String> toMap() {
         return new LinkedHashMap<>(tags);
     }

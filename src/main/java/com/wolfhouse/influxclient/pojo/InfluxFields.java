@@ -1,4 +1,4 @@
-package com.wolfhouse.influxclient.core;
+package com.wolfhouse.influxclient.pojo;
 
 import lombok.extern.slf4j.Slf4j;
 

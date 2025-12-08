@@ -1,6 +1,6 @@
-package com.wolfhouse.influxclient.sqlbuilder;
+package com.wolfhouse.influxclient.core;
 
-import com.wolfhouse.influxclient.core.AbstractActionInfluxObj;
+import com.wolfhouse.influxclient.pojo.AbstractActionInfluxObj;
 import lombok.Getter;
 import lombok.Setter;
 

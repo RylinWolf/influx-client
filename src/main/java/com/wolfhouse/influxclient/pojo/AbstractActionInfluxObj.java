@@ -1,4 +1,4 @@
-package com.wolfhouse.influxclient.core;
+package com.wolfhouse.influxclient.pojo;
 
 import com.wolfhouse.influxclient.exception.DuplicateFieldTagException;
 import lombok.Getter;
