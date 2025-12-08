@@ -12,6 +12,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;
 
+import static com.wolfhouse.influxclient.InfluxClientConstant.TIMESTAMP_FIELD;
+
 /**
  * 基于 {@link AbstractActionInfluxObj} 的查询构建器。
  * 该类用于构建InfluxDB查询语句，提供流式API来构建查询条件。
@@ -26,29 +28,28 @@ import java.util.*;
 @SuppressWarnings({"UnusedReturnValue", "unused"})
 public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseSqlBuilder {
     /** 表示当前构造器是否为匿名构造器（未通过泛型类型创建） */
-    private boolean                 isLambda      = false;
+    private boolean                   isLambda      = false;
     /** 控制查询结果是否包含时间戳字段 */
-    private boolean                 withTime      = true;
+    private boolean                   withTime      = true;
     /** 当前查询的目标表（measurement）名称 */
-    private String                  measurement;
+    private String                    measurement;
     /** 当前查询关联的映射对象引用，提供表结构信息 */
-    private AbstractActionInfluxObj reference;
+    private AbstractActionInfluxObj   reference;
     /** 当前查询涉及的标签约束集合 */
-    private InfluxTags              tags;
+    private InfluxTags                tags;
     /** 当前查询涉及的字段约束集合 */
-    private InfluxFields            fields;
+    private InfluxFields              fields;
     /** 当前查询的目标列集合，保持插入顺序 */
-    private LinkedHashSet<String>   queryTargets  = new LinkedHashSet<>();
+    private LinkedHashSet<String>     queryTargets  = new LinkedHashSet<>();
     /** 当前查询的条件构造器，用于构建WHERE子句 */
-    private ConditionWrapper<T>     conditionWrapper;
+    private ConditionWrapper<T>       conditionWrapper;
     /** 标记当前查询是否已经构建完成 */
-    private boolean                 isBuild       = false;
+    private boolean                   isBuild       = false;
     /** 标记当前查询是否包含WHERE条件（仅在构建后有效） */
-    private boolean                 isConditioned = false;
-    /** 查询结果的最大返回行数限制 */
-    private Long                    limit         = 0L;
-    /** 查询偏移量 */
-    private Long                    offset        = 0L;
+    private boolean                   isConditioned = false;
+    /** 当前查询的查询参数构造器 */
+    private InfluxModifiersWrapper<T> modifiersWrapper;
+    private boolean                   isModified    = false;
 
     // region 构造方法
 
@@ -262,9 +263,9 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
             builder.append(",");
         }
         // 添加时间
-        if (withTime) {
-            queryTargets.add("time");
-            builder.append("time");
+        if (withTime && !queryTargets.contains(TIMESTAMP_FIELD)) {
+            queryTargets.add(TIMESTAMP_FIELD);
+            builder.append(TIMESTAMP_FIELD);
         } else {
             builder.deleteCharAt(builder.length() - 1);
         }
@@ -288,6 +289,14 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
             builder.append(" WHERE (").append(this.conditionWrapper.sql()).append(")");
             this.isConditioned = true;
         }
+    }
+
+    @Override
+    protected void buildModifies(StringBuilder builder) {
+        if (this.modifiersWrapper == null) {
+            return;
+        }
+        builder.append(" ").append(this.modifiersWrapper.toSql());
     }
 
     @Override
@@ -430,5 +439,21 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
         return this.conditionWrapper;
     }
 
+    // endregion
+
+    // region 构建查询修饰符
+
+    /**
+     * 如果当前查询修饰符封装对象为空，则初始化一个新的 {@code InfluxModifiersWrapper} 实例，绑定到当前对象。
+     * 若已有条件封装对象，则直接返回该对象。
+     *
+     * @return 返回当前对象关联的 {@code InfluxModifiersWrapper} 实例，用于添加查询修饰符。
+     */
+    public InfluxModifiersWrapper<T> modify() {
+        if (modifiersWrapper == null) {
+            modifiersWrapper = InfluxModifiersWrapper.create(this);
+        }
+        return this.modifiersWrapper;
+    }
     // endregion
 }

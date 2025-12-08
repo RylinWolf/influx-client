@@ -25,7 +25,14 @@ public abstract class BaseSqlBuilder {
      *
      * @param builder 构建目标，围绕该 builder 进行拼接
      */
-    protected abstract void buildCondition(StringBuilder builder);
+    protected void buildCondition(StringBuilder builder) {}
+
+    /**
+     * 构建查询修饰符(order by, limit 等)
+     *
+     * @param builder 构建目标，围绕该 builder 进行拼接
+     */
+    protected void buildModifies(StringBuilder builder) {}
 
     /**
      * 执行构建前的字段验证
@@ -49,6 +56,7 @@ public abstract class BaseSqlBuilder {
         buildTarget(builder);
         buildFromTable(builder);
         buildCondition(builder);
+        buildModifies(builder);
         return builder.toString().trim();
     }
 }
