@@ -7,11 +7,9 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.SequencedCollection;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -38,7 +36,7 @@ public class InfluxObjMapper {
      * @throws RuntimeException 如果映射失败、无法实例化目标对象或其他错误发生时抛出
      */
     public static <T extends AbstractBaseInfluxObj, Wrapper extends InfluxQueryWrapper<?>> List<T> mapAll(Stream<Object[]> objStream, Class<T> clazz, Wrapper wrapper) {
-        return objStream.map(obj -> map(obj, clazz, wrapper.getQueryTargets())).toList();
+        return objStream.map(obj -> map(obj, clazz, wrapper.getMixedTargetsWithAlias())).toList();
     }
 
     /**
@@ -125,7 +123,6 @@ public class InfluxObjMapper {
         }
         return null;
     }
-
 
     /**
      * 将下划线分割的命名（snake_case）转换为驼峰命名（lowerCamelCase）
