@@ -1,4 +1,4 @@
-package com.wolfhouse.influxclient.core;
+package com.wolfhouse.influxclient.sqlbuilder;
 
 /**
  * SQL 构造器模板类，规范 SQL 构建的方法步骤
@@ -30,6 +30,7 @@ public abstract class BaseSqlBuilder {
     /**
      * 执行构建前的字段验证
      *
+     * @return 是否验证成功
      */
     protected abstract boolean validate();
 
