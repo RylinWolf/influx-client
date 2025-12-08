@@ -23,7 +23,7 @@ import java.util.function.Consumer;
 @Data
 @Accessors(chain = true)
 @SuppressWarnings({"UnusedReturnValue", "unused"})
-public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> {
+public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseSqlBuilder {
     /** 表示当前构造器是否为匿名构造器（未通过泛型类型创建） */
     private boolean                 isLambda      = false;
     /** 控制查询结果是否包含时间戳字段 */
@@ -243,15 +243,15 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> {
      * @return 构建后的 SQL 语句
      * @throws NoSuchTagOrFieldException 如果字段校验不通过，则抛出此异常，指明无效字段。
      */
+    @Override
     public String build() {
-        // 验证参数
-        if (!validBuild()) {
-            log.warn("【InfluxQueryWrapper】未构建查询语句，因为没有查询参数");
-            return null;
-        }
-        // 验证查询目标
-        validSelectFields(queryTargets);
-        StringBuilder builder = new StringBuilder();
+        String res = super.build();
+        this.isBuild = res != null;
+        return res;
+    }
+
+    @Override
+    protected void buildTarget(StringBuilder builder) {
         builder.append("SELECT ");
         LinkedHashSet<String> targets = new LinkedHashSet<>(queryTargets);
         while (!targets.isEmpty()) {
@@ -265,8 +265,16 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> {
         } else {
             builder.deleteCharAt(builder.length() - 1);
         }
+    }
+
+    @Override
+    protected void buildFromTable(StringBuilder builder) {
         // 指定目标表
         builder.append(" FROM ").append(measurement);
+    }
+
+    @Override
+    protected void buildCondition(StringBuilder builder) {
         // 初始化查询条件
         this.isConditioned = false;
         // 处理查询条件
@@ -277,8 +285,18 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> {
             builder.append(" WHERE (").append(this.conditionWrapper.sql()).append(")");
             this.isConditioned = true;
         }
-        this.isBuild = true;
-        return builder.toString().trim();
+    }
+
+    @Override
+    protected boolean validate() {
+        // 验证参数
+        if (!validBuild()) {
+            log.warn("【InfluxQueryWrapper】未构建查询语句，因为没有查询参数");
+            return false;
+        }
+        // 验证查询目标
+        validSelectFields(queryTargets);
+        return true;
     }
 
     // endregion
@@ -471,6 +489,8 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> {
             return wrapper;
         }
 
+        // region 连接条件
+
         /**
          * 使用 AND 逻辑连接新的条件。
          * 如果condition为false，则不添加新条件。
@@ -492,6 +512,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> {
             builder.append(mayDo(condition, consumer, SqlSegmentType.AND));
             return this;
         }
+
 
         /**
          * 使用 AND 逻辑连接新的条件。
@@ -530,6 +551,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> {
         public ConditionWrapper<T> or(Consumer<ConditionWrapper<T>> consumer) {
             return or(consumer, true);
         }
+        // endregion
 
         // region 基本查询条件
 
@@ -658,6 +680,8 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> {
             return parent;
         }
 
+        // region 私有方法
+
         /**
          * 在已有条件的基础上追加一个带有指定操作符的条件，并根据已存在的条件自动添加 "AND" 连接符。
          *
@@ -733,6 +757,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> {
         private String paramName() {
             return "param_" + paramIdx.incrementAndGet();
         }
+        // endregion
     }
     // endregion
 }
