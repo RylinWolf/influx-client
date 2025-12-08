@@ -1,22 +1,20 @@
 package com.wolfhouse.influxclient.client;
 
 import com.influxdb.v3.client.internal.InfluxDBClientImpl;
-import com.wolfhouse.influxclient.core.AbstractActionInfluxObj;
-import com.wolfhouse.influxclient.core.AbstractBaseInfluxObj;
+import com.wolfhouse.influxclient.core.ConditionWrapper;
 import com.wolfhouse.influxclient.core.InfluxObjMapper;
+import com.wolfhouse.influxclient.core.InfluxQueryWrapper;
 import com.wolfhouse.influxclient.core.PointBuilder;
 import com.wolfhouse.influxclient.exception.InfluxClientInsertException;
 import com.wolfhouse.influxclient.exception.InfluxClientQueryException;
-import com.wolfhouse.influxclient.sqlbuilder.ConditionWrapper;
-import com.wolfhouse.influxclient.sqlbuilder.InfluxQueryWrapper;
+import com.wolfhouse.influxclient.pojo.AbstractActionInfluxObj;
+import com.wolfhouse.influxclient.pojo.AbstractBaseInfluxObj;
+import com.wolfhouse.influxclient.pojo.InfluxPage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.util.Collection;
-import java.util.LinkedHashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Stream;
 
 /**
@@ -117,6 +115,16 @@ public class InfluxClient {
     }
 
     /**
+     * 基本的查询方法，使用给定的查询条件包装器执行查询操作，并返回查询结果流。
+     *
+     * @param wrapper 查询条件包装器，用于构建查询语句和获取查询参数。
+     * @return 查询结果的流，每个结果为一个包含列值的数组。
+     */
+    private Stream<Object[]> doQuery(InfluxQueryWrapper<?> wrapper) {
+        return doQuery(wrapper.build(), wrapper.getConditionWrapper().getParameters());
+    }
+
+    /**
      * 使用给定的查询条件包装器和指定的目标类，将查询结果映射为指定类型的集合。
      *
      * @param <T>     目标类型，必须继承自 AbstractBaseInfluxObj。
@@ -126,5 +134,35 @@ public class InfluxClient {
      */
     public <T extends AbstractBaseInfluxObj> Collection<T> queryMap(InfluxQueryWrapper<?> wrapper, Class<T> clazz) {
         return InfluxObjMapper.mapAll(query(wrapper), clazz, wrapper);
+    }
+
+    /**
+     * 对给定的查询条件进行分页查询，返回指定类型的分页结果。
+     *
+     * @param <T>      数据对象的类型，必须继承自 AbstractBaseInfluxObj。
+     * @param wrapper  查询条件包装器，用于构建查询的条件和参数。
+     * @param clazz    数据对象的目标类型，用于映射查询结果。
+     * @param pageNum  当前页码，从1开始。
+     * @param pageSize 每页显示的数据条数。
+     * @return 包含查询结果的分页对象，包含总记录数、页码、每页大小以及当前页的数据。
+     */
+    public <T extends AbstractBaseInfluxObj> InfluxPage<T> pagination(InfluxQueryWrapper<?> wrapper, Class<T> clazz, long pageNum, long pageSize) {
+        // 验证分页参数
+        assert pageNum > 0 && pageSize > 0 : "分页参数配置有误，必须大于 0";
+        // 构建分页结果
+        InfluxPage<T> page = InfluxPage.<T>builder()
+                                       .total(count(wrapper))
+                                       .pageNum(pageNum)
+                                       .pageSize(pageSize)
+                                       .records(Collections.emptyList())
+                                       .build();
+        if (page.total() < 1) {
+            return page;
+        }
+        // 添加分页参数
+        wrapper.modify()
+               .limit(pageSize, (pageNum - 1) * pageSize);
+        // 执行查询，设置结果集
+        return page.records(queryMap(wrapper, clazz).stream().toList());
     }
 }
