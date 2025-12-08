@@ -109,6 +109,18 @@ public class InfluxObjMapper {
         }
     }
 
+    public static <Wrapper extends InfluxQueryWrapper<?>> List<Map<String, Object>> compressToMapList(Stream<Object[]> objs, Wrapper wrapper) {
+        return objs.map(obj -> compressToMap(obj, wrapper.getMixedTargetsWithAlias())).toList();
+    }
+
+    public static Map<String, Object> compressToMap(Object[] obj, final SequencedSet<String> targets) {
+        assert targets.size() == obj.length : "查询参数数与结果集不一致！";
+        var targetsCopy = new LinkedHashSet<>(targets);
+        return Stream.of(obj)
+                     .map(o -> Map.entry(targetsCopy.removeFirst(), o))
+                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
     /**
      * 递归查找字段（支持 private 和父类字段）
      */
