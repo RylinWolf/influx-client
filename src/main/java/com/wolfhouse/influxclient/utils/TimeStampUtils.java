@@ -33,7 +33,7 @@ public class TimeStampUtils {
             );
             case MILLIS -> Instant.ofEpochMilli(timestamp);
             case SECONDS -> Instant.ofEpochSecond(timestamp);
-            default -> throw new IllegalArgumentException("不支持的 ChronoUnit: " + unit);
+            default -> throw new IllegalArgumentException("【TimestampUtils】不支持的 ChronoUnit: " + unit);
         };
     }
 
@@ -41,10 +41,9 @@ public class TimeStampUtils {
      * 自动检测并转换
      */
     public static Instant autoConvert(long timestamp) {
-        Instant instant = detectAndConvert(timestamp);
-        log.debug("转换时间: {}, 结果: {}", timestamp, formatInstant(instant));
-        log.debug("对应北京时间: {}", formatInBeijing(instant));
-        return instant;
+        //log.debug("【TimestampUtils】转换时间: {}, 结果: {}", timestamp, formatInstant(instant))
+        //log.debug("【TimestampUtils】对应北京时间: {}", formatInBeijing(instant))
+        return detectAndConvert(timestamp);
     }
 
     private static Instant detectAndConvert(long timestamp) {
@@ -66,7 +65,7 @@ public class TimeStampUtils {
             // 10位数字，通常是秒
             return toInstant(timestamp, ChronoUnit.SECONDS);
         } else {
-            throw new IllegalArgumentException("无法识别的时间戳: " + timestamp);
+            throw new IllegalArgumentException("【TimestampUtils】无法识别的时间戳: " + timestamp);
         }
     }
 
@@ -88,7 +87,7 @@ public class TimeStampUtils {
         } else if (microsYear >= 1970 && microsYear <= 2200) {
             return microsInstant;
         } else {
-            throw new IllegalArgumentException("无法确定时间戳单位: " + timestamp);
+            throw new IllegalArgumentException("【TimestampUtils】无法确定时间戳单位: " + timestamp);
         }
     }
 
