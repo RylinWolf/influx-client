@@ -113,6 +113,10 @@ public class InfluxObjMapper {
         return objs.map(obj -> compressToMap(obj, wrapper.getMixedTargetsWithAlias())).toList();
     }
 
+    public static List<Map<String, Object>> compressToMapList(Stream<Object[]> objs, final SequencedSet<String> targets) {
+        return objs.map(obj -> compressToMap(obj, targets)).toList();
+    }
+
     public static Map<String, Object> compressToMap(Object[] obj, final SequencedSet<String> targets) {
         assert targets.size() == obj.length : "查询参数数与结果集不一致！";
         var targetsCopy = new LinkedHashSet<>(targets);
