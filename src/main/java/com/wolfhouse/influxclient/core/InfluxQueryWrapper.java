@@ -308,7 +308,10 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
         }
         // 添加时间
         if (withTime && !queryTargets.contains(TIMESTAMP_FIELD)) {
+            // 添加时间字段至别名映射
             aliasMap.putLast(TIMESTAMP_FIELD, null);
+            // 添加时间字段至混合目标字段
+            mixedTargetsWithAlias.add(TIMESTAMP_FIELD);
             builder.append(TIMESTAMP_FIELD);
         } else {
             builder.deleteCharAt(builder.length() - 1);
