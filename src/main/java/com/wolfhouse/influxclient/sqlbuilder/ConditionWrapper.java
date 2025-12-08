@@ -2,7 +2,6 @@ package com.wolfhouse.influxclient.sqlbuilder;
 
 import com.wolfhouse.influxclient.constant.SqlSegmentType;
 import com.wolfhouse.influxclient.core.AbstractActionInfluxObj;
-import com.wolfhouse.influxclient.core.InfluxQueryWrapper;
 import lombok.Getter;
 
 import java.util.HashMap;
