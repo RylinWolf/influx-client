@@ -1,6 +1,7 @@
 package com.wolfhouse.influxclient.core;
 
 import com.wolfhouse.influxclient.pojo.AbstractBaseInfluxObj;
+import com.wolfhouse.influxclient.pojo.InfluxResult;
 import com.wolfhouse.influxclient.typehandler.InfluxTypeHandler;
 import com.wolfhouse.influxclient.typehandler.TypeHandler;
 import lombok.extern.slf4j.Slf4j;
@@ -9,7 +10,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -60,6 +60,7 @@ public class InfluxObjMapper {
             assert targets.size() == obj.length : "查询参数数与结果集不一致！";
 
             for (Object o : obj) {
+                // 当前值的字段名
                 String name = targets.removeFirst();
                 // 将蛇形命名转换为驼峰命名，以便匹配 Java 字段
                 String fieldName = toCamelCase(name);
@@ -114,15 +115,24 @@ public class InfluxObjMapper {
     }
 
     public static List<Map<String, Object>> compressToMapList(Stream<Object[]> objs, final SequencedSet<String> targets) {
-        return objs.map(obj -> compressToMap(obj, targets)).toList();
+        String[] targetsArray = targets.toArray(String[]::new);
+        return objs.map(obj -> {
+            // 要查询的参数数量与返回的结果集字段数量不一致
+            if (obj.length != targetsArray.length) {
+                log.error("查询参数数与结果集不一致: {}, {}", obj, targetsArray);
+                return null;
+            }
+            Map<String, Object> map = new HashMap<>();
+            for (int i = 0; i < obj.length; i++) {
+                // 按位置匹配当前字段与字段名
+                map.put(targetsArray[i], obj[i]);
+            }
+            return map;
+        }).toList();
     }
 
     public static Map<String, Object> compressToMap(Object[] obj, final SequencedSet<String> targets) {
-        assert targets.size() == obj.length : "查询参数数与结果集不一致！";
-        var targetsCopy = new LinkedHashSet<>(targets);
-        return Stream.of(obj)
-                     .map(o -> Map.entry(targetsCopy.removeFirst(), o))
-                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        return compressToMapList(Stream.<Object[]>of(obj), targets).getFirst();
     }
 
     /**
