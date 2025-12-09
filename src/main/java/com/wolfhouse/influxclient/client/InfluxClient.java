@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.Nullable;
 import java.util.*;
 import java.util.stream.Stream;
 
@@ -140,7 +141,11 @@ public class InfluxClient {
      * @return 映射后的目标类型集合。
      */
     public <E extends AbstractBaseInfluxObj, T extends AbstractActionInfluxObj> Collection<E> queryMap(InfluxQueryWrapper<T> wrapper, Class<E> clazz) {
-        return InfluxObjMapper.mapAll(query(wrapper), clazz, wrapper);
+        Stream<Object[]> query = query(wrapper);
+        if (query.findAny().isEmpty()) {
+            return Collections.emptyList();
+        }
+        return InfluxObjMapper.mapAll(query, clazz, wrapper);
     }
 
     /**
@@ -150,7 +155,11 @@ public class InfluxClient {
      * @return 查询结果的列表，每个列表项为一个映射，表示查询结果中的各列及其对应的值。
      */
     public List<Map<String, Object>> queryMap(InfluxQueryWrapper<?> wrapper) {
-        return InfluxObjMapper.compressToMapList(query(wrapper), wrapper);
+        Stream<Object[]> query = query(wrapper);
+        if (query.findAny().isEmpty()) {
+            return Collections.emptyList();
+        }
+        return InfluxObjMapper.compressToMapList(query, wrapper);
     }
 
     /**
@@ -159,8 +168,13 @@ public class InfluxClient {
      * @param wrapper 查询条件包装器，用于构建查询条件和提供查询参数。
      * @return 查询结果的封装对象，包含查询执行后的数据。
      */
+    @Nullable
     public InfluxResult queryResult(InfluxQueryWrapper<?> wrapper) {
-        return InfluxObjMapper.mapAllToResult(query(wrapper), wrapper.getMixedTargetsWithAlias());
+        Stream<Object[]> query = query(wrapper);
+        if (query.findAny().isEmpty()) {
+            return null;
+        }
+        return InfluxObjMapper.mapAllToResult(query, wrapper.getMixedTargetsWithAlias());
     }
 
     /**

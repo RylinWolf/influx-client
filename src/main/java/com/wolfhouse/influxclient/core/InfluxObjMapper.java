@@ -64,6 +64,7 @@ public class InfluxObjMapper {
             targets = new LinkedHashSet<>(targets);
             assert targets.size() == obj.length : "查询参数数与结果集不一致！";
 
+            // TODO 可以优化获取字段名的性能
             for (Object o : obj) {
                 // 当前值的字段名
                 String name = targets.removeFirst();
@@ -142,6 +143,10 @@ public class InfluxObjMapper {
      * @return 映射后的键值对列表，如果出现字段数量与记录列数不一致，将返回null并记录错误日志
      */
     public static List<Map<String, Object>> compressToMapList(Stream<Object[]> objs, final SequencedCollection<String> targets) {
+        if (targets == null || targets.isEmpty()) {
+            log.warn("查询目标不存在");
+            return Collections.emptyList();
+        }
         String[] targetsArray = targets.toArray(String[]::new);
         return objs.map(obj -> {
             // 要查询的参数数量与返回的结果集字段数量不一致
