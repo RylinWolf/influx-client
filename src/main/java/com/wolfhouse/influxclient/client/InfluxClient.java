@@ -48,13 +48,17 @@ public class InfluxClient {
     public <T extends AbstractActionInfluxObj> Long count(InfluxQueryWrapper<T> wrapper) {
         // 获取条件构造器
         ConditionWrapper<T> conditions = wrapper.getConditionWrapper();
+        if (conditions == null) {
+            return count(wrapper.getMeasurement(), null, null);
+        }
         return count(wrapper.getMeasurement(), conditions.sql(), conditions.getParameters());
     }
 
     public Long count(String measurement, String conditions, Map<String, Object> params) {
         // 基础计数语句
-        StringBuilder countBuilder = new StringBuilder("select count(0) count from ")
-                .append(measurement);
+        StringBuilder countBuilder = new StringBuilder("select count(0) count from `")
+                .append(measurement)
+                .append("`");
         // 构建条件
         if (conditions != null && !conditions.isEmpty()) {
             countBuilder.append(" where ( ")
@@ -111,7 +115,8 @@ public class InfluxClient {
         if (count(wrapper) < 1) {
             return Stream.empty();
         }
-        return doQuery(wrapper.build(), wrapper.getConditionWrapper().getParameters());
+        ConditionWrapper<?> condition = wrapper.getConditionWrapper();
+        return doQuery(wrapper.build(), condition == null ? null : condition.getParameters());
     }
 
     /**
@@ -121,7 +126,8 @@ public class InfluxClient {
      * @return 查询结果的流，每个结果为一个包含列值的数组。
      */
     private Stream<Object[]> doQuery(InfluxQueryWrapper<?> wrapper) {
-        return doQuery(wrapper.build(), wrapper.getConditionWrapper().getParameters());
+        ConditionWrapper<?> condition = wrapper.getConditionWrapper();
+        return doQuery(wrapper.build(), condition == null ? null : condition.getParameters());
     }
 
     /**

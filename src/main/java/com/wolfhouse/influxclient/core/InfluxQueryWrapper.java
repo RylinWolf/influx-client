@@ -295,7 +295,9 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
         while (!targets.isEmpty()) {
             String target = targets.removeFirst();
             String alias  = aliasMap.get(target);
-            builder.append(target);
+            builder.append("`")
+                   .append(target)
+                   .append("`");
             if (alias != null) {
                 // 添加入目标字段集合
                 mixedTargetsWithAlias.add(alias);
@@ -321,7 +323,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
     @Override
     protected void buildFromTable(StringBuilder builder) {
         // 指定目标表
-        builder.append(" FROM ").append(measurement);
+        builder.append(" FROM `").append(measurement).append("`");
     }
 
     @Override

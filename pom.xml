@@ -7,8 +7,14 @@
     <groupId>com.wolfhouse</groupId>
     <artifactId>influxclient</artifactId>
     <version>1.0-ALPHA</version>
-    <packaging>jar</packaging>
 
+    <developers>
+        <developer>
+            <name>Rylin Wolf</name>
+            <email>RylinSong@iCloud.com</email>
+        </developer>
+    </developers>
+    
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>

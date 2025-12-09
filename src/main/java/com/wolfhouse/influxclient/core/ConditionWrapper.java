@@ -284,7 +284,7 @@ public class ConditionWrapper<T extends AbstractActionInfluxObj> {
             and = true;
             this.builder.append(" AND ( ");
         }
-        this.builder.append(" ( ").append(column).append(" ")
+        this.builder.append(" ( `").append(column).append("` ")
                     .append(sqlSegment.value)
                     .append(" $").append(addColumnValueMapping(column, value)).append(" ) ");
         // 若拼接 and 条件，则闭合括号
