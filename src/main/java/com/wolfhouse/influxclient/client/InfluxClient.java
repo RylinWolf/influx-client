@@ -13,7 +13,6 @@ import com.wolfhouse.influxclient.pojo.InfluxPage;
 import com.wolfhouse.influxclient.pojo.InfluxResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 
 import javax.annotation.Nullable;
 import java.util.*;
@@ -23,7 +22,6 @@ import java.util.stream.Stream;
  * @author Rylin Wolf
  */
 @Slf4j
-@Component
 @RequiredArgsConstructor
 public class InfluxClient {
     public final InfluxDBClientImpl client;
