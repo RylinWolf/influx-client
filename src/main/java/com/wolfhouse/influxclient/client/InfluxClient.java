@@ -10,6 +10,7 @@ import com.wolfhouse.influxclient.exception.InfluxClientQueryException;
 import com.wolfhouse.influxclient.pojo.AbstractActionInfluxObj;
 import com.wolfhouse.influxclient.pojo.AbstractBaseInfluxObj;
 import com.wolfhouse.influxclient.pojo.InfluxPage;
+import com.wolfhouse.influxclient.pojo.InfluxResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -150,6 +151,16 @@ public class InfluxClient {
      */
     public List<Map<String, Object>> queryMap(InfluxQueryWrapper<?> wrapper) {
         return InfluxObjMapper.compressToMapList(query(wrapper), wrapper);
+    }
+
+    /**
+     * 执行查询操作，根据提供的查询条件封装器返回查询结果，并使用结果映射工具处理查询结果。
+     *
+     * @param wrapper 查询条件包装器，用于构建查询条件和提供查询参数。
+     * @return 查询结果的封装对象，包含查询执行后的数据。
+     */
+    public InfluxResult queryResult(InfluxQueryWrapper<?> wrapper) {
+        return InfluxObjMapper.mapAllToResult(query(wrapper), wrapper.getMixedTargetsWithAlias());
     }
 
     /**
