@@ -49,9 +49,14 @@ public class InfluxObjMapper {
      * @return 映射后的目标类型对象
      * @throws RuntimeException 如果字段注入失败、无法实例化目标对象或其他错误发生时抛出
      */
+    @SuppressWarnings("unchecked")
     public static <T extends AbstractBaseInfluxObj> T map(Object[] obj,
                                                           Class<T> clazz,
                                                           SequencedCollection<String> targets) {
+        // 对于 InfluxResult 特殊处理
+        if (clazz.equals(InfluxResult.class)) {
+            return (T) mapToResult(obj, targets);
+        }
         try {
             // 创建目标类对象
             T t = clazz.getDeclaredConstructor().newInstance();
@@ -79,27 +84,7 @@ public class InfluxObjMapper {
                 // 这里字段一定存在
                 field.setAccessible(true);
                 // 处理自定义 TypeHandler
-                Object valueToSet = o;
-                if (field.isAnnotationPresent(InfluxTypeHandler.class)) {
-                    InfluxTypeHandler               annotation   = field.getAnnotation(InfluxTypeHandler.class);
-                    Class<? extends TypeHandler<?>> handlerClass = annotation.value();
-                    try {
-                        // 从缓存获取或新建 Handler 实例
-                        TypeHandler<?> handler = HANDLER_CACHE.computeIfAbsent(handlerClass,
-                                k -> {
-                                    try {
-                                        return k.getDeclaredConstructor().newInstance();
-                                    } catch (Exception e) {
-                                        throw new RuntimeException("无法实例化 TypeHandler: " + k.getName(), e);
-                                    }
-                                });
-                        // 执行转换
-                        valueToSet = handler.getResult(o);
-                    } catch (Exception e) {
-                        log.error("TypeHandler 转换失败，字段: {}, Handler: {}", field.getName(), handlerClass.getName(), e);
-                        throw new RuntimeException(e);
-                    }
-                }
+                Object valueToSet = handleType(o, field);
                 field.set(t, valueToSet);
             }
             return t;
@@ -110,11 +95,53 @@ public class InfluxObjMapper {
         }
     }
 
+    /**
+     * 对字段进行类型处理，如果字段标注了 {@link InfluxTypeHandler}，则使用对应的 {@link TypeHandler} 对输入值进行转换。
+     * 处理完成后返回转换后的值。
+     *
+     * @param o     输入的对象值，需要被处理的值
+     * @param field 对应字段对象，用于检查是否存在注解 {@link InfluxTypeHandler} 以及获取注解信息
+     * @return 转换后的对象值，如果字段未标注注解 {@link InfluxTypeHandler}，则返回输入值 o 本身
+     * @throws RuntimeException 如果处理过程中实例化 {@link TypeHandler} 或转换失败，则抛出异常
+     */
+    private static Object handleType(Object o, Field field) {
+        Object valueToSet = o;
+        if (field.isAnnotationPresent(InfluxTypeHandler.class)) {
+            InfluxTypeHandler               annotation   = field.getAnnotation(InfluxTypeHandler.class);
+            Class<? extends TypeHandler<?>> handlerClass = annotation.value();
+            try {
+                // 从缓存获取或新建 Handler 实例
+                TypeHandler<?> handler = HANDLER_CACHE.computeIfAbsent(handlerClass,
+                        k -> {
+                            try {
+                                return k.getDeclaredConstructor().newInstance();
+                            } catch (Exception e) {
+                                throw new RuntimeException("无法实例化 TypeHandler: " + k.getName(), e);
+                            }
+                        });
+                // 执行转换
+                valueToSet = handler.getResult(o);
+            } catch (Exception e) {
+                log.error("TypeHandler 转换失败，字段: {}, Handler: {}", field.getName(), handlerClass.getName(), e);
+                throw new RuntimeException(e);
+            }
+        }
+        return valueToSet;
+    }
+
     public static <Wrapper extends InfluxQueryWrapper<?>> List<Map<String, Object>> compressToMapList(Stream<Object[]> objs, Wrapper wrapper) {
         return objs.map(obj -> compressToMap(obj, wrapper.getMixedTargetsWithAlias())).toList();
     }
 
-    public static List<Map<String, Object>> compressToMapList(Stream<Object[]> objs, final SequencedSet<String> targets) {
+    /**
+     * 将一个对象数组流压缩并映射为一个包含映射关系的列表，每个列表项为一个键值对的映射表。
+     * 方法将通过指定的字段名称集合，将对象数组的每个元素与字段名逐一匹配进行映射。
+     *
+     * @param objs    对象数组流，其中每个对象数组表示一组数据记录
+     * @param targets 用于映射的字段名称集合，字段顺序需与对象数组中的数据顺序一致
+     * @return 映射后的键值对列表，如果出现字段数量与记录列数不一致，将返回null并记录错误日志
+     */
+    public static List<Map<String, Object>> compressToMapList(Stream<Object[]> objs, final SequencedCollection<String> targets) {
         String[] targetsArray = targets.toArray(String[]::new);
         return objs.map(obj -> {
             // 要查询的参数数量与返回的结果集字段数量不一致
@@ -131,8 +158,25 @@ public class InfluxObjMapper {
         }).toList();
     }
 
-    public static Map<String, Object> compressToMap(Object[] obj, final SequencedSet<String> targets) {
+    public static Map<String, Object> compressToMap(Object[] obj, final SequencedCollection<String> targets) {
         return compressToMapList(Stream.<Object[]>of(obj), targets).getFirst();
+    }
+
+    public static InfluxResult mapToResult(Object[] obj, SequencedCollection<String> targets) {
+        return new InfluxResult().addRow(compressToMap(obj, targets));
+    }
+
+    /**
+     * 将对象数组流映射为 InfluxResult 类型的实例。
+     * 通过指定字段名称集合，将对象数组流的数据逐一映射为键值对列表，
+     * 然后构造并返回封装后的查询结果对象。
+     *
+     * @param objStream 对象数组流，其中每个数组表示一条数据记录
+     * @param targets   字段名称集合，用于指定映射时的字段顺序，与对象数组中数据的顺序需一致
+     * @return 封装后的 InfluxResult 对象，包含所有映射后的数据记录
+     */
+    public static InfluxResult mapAllToResult(Stream<Object[]> objStream, SequencedCollection<String> targets) {
+        return new InfluxResult().addAllRow(compressToMapList(objStream, targets));
     }
 
     /**
