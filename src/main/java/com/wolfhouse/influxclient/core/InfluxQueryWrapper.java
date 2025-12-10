@@ -44,7 +44,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
     /** 当前查询的目标列集合，若有别名则使用别名代替（仅在构建后有效） */
     private LinkedHashSet<String>         mixedTargetsWithAlias;
     /** 当前查询的条件构造器，用于构建WHERE子句 */
-    private ConditionWrapper<T>           conditionWrapper;
+    private InfluxConditionWrapper<T>     conditionWrapper;
     /** 标记当前查询是否已经构建完成 */
     private boolean                       isBuild       = false;
     /** 标记当前查询是否包含WHERE条件（仅在构建后有效） */
@@ -481,9 +481,9 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
      *
      * @return 返回当前对象关联的 {@code ConditionWrapper} 实例，用于管理查询的条件逻辑。
      */
-    public ConditionWrapper<T> where() {
+    public InfluxConditionWrapper<T> where() {
         if (conditionWrapper == null) {
-            conditionWrapper = ConditionWrapper.create(this);
+            conditionWrapper = InfluxConditionWrapper.create(this);
         }
         return this.conditionWrapper;
     }

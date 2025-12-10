@@ -34,8 +34,12 @@ public class InfluxResult extends AbstractBaseInfluxObj {
         return this;
     }
 
-    public Map<String, Object> getRow(int index) {
+    public Map<String, Object> row(int index) {
         return this.results.get(index).getRowRecord();
+    }
+
+    public List<InfluxRow> rows() {
+        return this.results;
     }
 
     @Override
@@ -43,7 +47,7 @@ public class InfluxResult extends AbstractBaseInfluxObj {
         return "";
     }
 
-    protected static class InfluxRow {
+    public static class InfluxRow {
         @Getter
         private Map<String, Object> rowRecord;
 

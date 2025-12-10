@@ -32,7 +32,7 @@ import java.util.function.Consumer;
  * @author Rylin Wolf
  */
 @SuppressWarnings({"UnusedReturnValue", "unused"})
-public class ConditionWrapper<T extends AbstractActionInfluxObj> {
+public class InfluxConditionWrapper<T extends AbstractActionInfluxObj> {
     /** 查询条件参数与值映射 */
     @Getter
     private final Map<String, Object>   parameters;
@@ -49,7 +49,7 @@ public class ConditionWrapper<T extends AbstractActionInfluxObj> {
      * 构造一个空的 ConditionWrapper 实例。
      * 初始化参数映射和SQL构建器。
      */
-    private ConditionWrapper() {
+    private InfluxConditionWrapper() {
         parameters = new HashMap<>();
         builder    = new StringBuilder();
     }
@@ -60,8 +60,8 @@ public class ConditionWrapper<T extends AbstractActionInfluxObj> {
      *
      * @return 返回新创建的 ConditionWrapper 实例
      */
-    private static ConditionWrapper<?> create() {
-        return new ConditionWrapper<>();
+    private static InfluxConditionWrapper<?> create() {
+        return new InfluxConditionWrapper<>();
     }
 
     /**
@@ -70,8 +70,8 @@ public class ConditionWrapper<T extends AbstractActionInfluxObj> {
      * @param parent 要关联的父查询对象
      * @return 返回新创建的 ConditionWrapper 实例
      */
-    public static <T extends AbstractActionInfluxObj> ConditionWrapper<T> create(InfluxQueryWrapper<T> parent) {
-        ConditionWrapper<T> wrapper = new ConditionWrapper<>();
+    public static <T extends AbstractActionInfluxObj> InfluxConditionWrapper<T> create(InfluxQueryWrapper<T> parent) {
+        InfluxConditionWrapper<T> wrapper = new InfluxConditionWrapper<>();
         wrapper.parent = parent;
         return wrapper;
     }
@@ -88,7 +88,7 @@ public class ConditionWrapper<T extends AbstractActionInfluxObj> {
      * @param condition 控制是否添加条件的布尔值
      * @return 当前 ConditionWrapper 实例
      */
-    public ConditionWrapper<T> and(Consumer<ConditionWrapper<T>> consumer, boolean condition) {
+    public InfluxConditionWrapper<T> and(Consumer<InfluxConditionWrapper<T>> consumer, boolean condition) {
         String currentSql = builder.toString().trim().toUpperCase();
         if (currentSql.isBlank() || currentSql.endsWith(SqlSegmentType.AND.value)) {
             builder.append(" ( ")
@@ -107,7 +107,7 @@ public class ConditionWrapper<T extends AbstractActionInfluxObj> {
      * @param consumer 用于构建新条件的消费者函数
      * @return 当前 ConditionWrapper 实例
      */
-    public ConditionWrapper<T> and(Consumer<ConditionWrapper<T>> consumer) {
+    public InfluxConditionWrapper<T> and(Consumer<InfluxConditionWrapper<T>> consumer) {
         return and(consumer, true);
     }
 
@@ -119,7 +119,7 @@ public class ConditionWrapper<T extends AbstractActionInfluxObj> {
      * @param condition 控制是否添加条件的布尔值
      * @return 当前 ConditionWrapper 实例
      */
-    public ConditionWrapper<T> or(Consumer<ConditionWrapper<T>> consumer, boolean condition) {
+    public InfluxConditionWrapper<T> or(Consumer<InfluxConditionWrapper<T>> consumer, boolean condition) {
         if (builder.toString().trim().toUpperCase().endsWith(SqlSegmentType.OR.value)) {
             builder.append(" ( ")
                    .append(mayDo(condition, consumer, null))
@@ -135,7 +135,7 @@ public class ConditionWrapper<T extends AbstractActionInfluxObj> {
      * @param consumer 用于构建新条件的消费者函数
      * @return 当前 ConditionWrapper 实例
      */
-    public ConditionWrapper<T> or(Consumer<ConditionWrapper<T>> consumer) {
+    public InfluxConditionWrapper<T> or(Consumer<InfluxConditionWrapper<T>> consumer) {
         return or(consumer, true);
     }
     // endregion
@@ -150,11 +150,11 @@ public class ConditionWrapper<T extends AbstractActionInfluxObj> {
      * @param condition 是否添加此条件
      * @return 当前 ConditionWrapper 实例
      */
-    public ConditionWrapper<T> eq(String column, Object value, boolean condition) {
+    public InfluxConditionWrapper<T> eq(String column, Object value, boolean condition) {
         return condition ? appendConditionAndMask(column, value, SqlSegmentType.EQ) : this;
     }
 
-    public ConditionWrapper<T> eq(String column, Object value) {
+    public InfluxConditionWrapper<T> eq(String column, Object value) {
         return eq(column, value, true);
     }
 
@@ -166,11 +166,11 @@ public class ConditionWrapper<T extends AbstractActionInfluxObj> {
      * @param condition 是否添加此条件
      * @return 当前 ConditionWrapper 实例
      */
-    public ConditionWrapper<T> ne(String column, Object value, boolean condition) {
+    public InfluxConditionWrapper<T> ne(String column, Object value, boolean condition) {
         return condition ? appendConditionAndMask(column, value, SqlSegmentType.NE) : this;
     }
 
-    public ConditionWrapper<T> ne(String column, Object value) {
+    public InfluxConditionWrapper<T> ne(String column, Object value) {
         return ne(column, value, true);
     }
 
@@ -182,11 +182,11 @@ public class ConditionWrapper<T extends AbstractActionInfluxObj> {
      * @param condition 是否添加此条件
      * @return 当前 ConditionWrapper 实例
      */
-    public ConditionWrapper<T> lt(String column, Object value, boolean condition) {
+    public InfluxConditionWrapper<T> lt(String column, Object value, boolean condition) {
         return condition ? appendConditionAndMask(column, value, SqlSegmentType.LT) : this;
     }
 
-    public ConditionWrapper<T> lt(String column, Object value) {
+    public InfluxConditionWrapper<T> lt(String column, Object value) {
         return lt(column, value, true);
     }
 
@@ -198,11 +198,11 @@ public class ConditionWrapper<T extends AbstractActionInfluxObj> {
      * @param condition 是否添加此条件
      * @return 当前 ConditionWrapper 实例
      */
-    public ConditionWrapper<T> gt(String column, Object value, boolean condition) {
+    public InfluxConditionWrapper<T> gt(String column, Object value, boolean condition) {
         return condition ? appendConditionAndMask(column, value, SqlSegmentType.GT) : this;
     }
 
-    public ConditionWrapper<T> gt(String column, Object value) {
+    public InfluxConditionWrapper<T> gt(String column, Object value) {
         return gt(column, value, true);
     }
 
@@ -214,11 +214,11 @@ public class ConditionWrapper<T extends AbstractActionInfluxObj> {
      * @param condition 是否添加此条件
      * @return 当前 ConditionWrapper 实例
      */
-    public ConditionWrapper<T> le(String column, Object value, boolean condition) {
+    public InfluxConditionWrapper<T> le(String column, Object value, boolean condition) {
         return condition ? appendConditionAndMask(column, value, SqlSegmentType.LE) : this;
     }
 
-    public ConditionWrapper<T> le(String column, Object value) {
+    public InfluxConditionWrapper<T> le(String column, Object value) {
         return le(column, value, true);
     }
 
@@ -230,11 +230,11 @@ public class ConditionWrapper<T extends AbstractActionInfluxObj> {
      * @param condition 是否添加此条件
      * @return 当前 ConditionWrapper 实例
      */
-    public ConditionWrapper<T> ge(String column, Object value, boolean condition) {
+    public InfluxConditionWrapper<T> ge(String column, Object value, boolean condition) {
         return condition ? appendConditionAndMask(column, value, SqlSegmentType.GE) : this;
     }
 
-    public ConditionWrapper<T> ge(String column, Object value) {
+    public InfluxConditionWrapper<T> ge(String column, Object value) {
         return ge(column, value, true);
     }
 
@@ -277,7 +277,7 @@ public class ConditionWrapper<T extends AbstractActionInfluxObj> {
      * @param sqlSegment 条件操作符，表示具体的 SQL 比较逻辑 (如 "=", "<", ">=" 等)
      * @return 当前 ConditionWrapper 实例，用于支持链式调用
      */
-    private ConditionWrapper<T> appendConditionAndMask(String column, Object value, SqlSegmentType sqlSegment) {
+    private InfluxConditionWrapper<T> appendConditionAndMask(String column, Object value, SqlSegmentType sqlSegment) {
         // 若前文有内容，则自动拼接 and 条件，以支持基本条件的链式调用
         boolean and = false;
         if (!this.builder.toString().trim().isEmpty()) {
@@ -319,11 +319,11 @@ public class ConditionWrapper<T extends AbstractActionInfluxObj> {
      * @param sqlSegment SQL片段类型
      * @return 构建的SQL片段
      */
-    private String mayDo(boolean condition, Consumer<ConditionWrapper<T>> consumer, SqlSegmentType sqlSegment) {
+    private String mayDo(boolean condition, Consumer<InfluxConditionWrapper<T>> consumer, SqlSegmentType sqlSegment) {
         if (!condition) {
             return "";
         }
-        ConditionWrapper<T> instance = create(this.parent);
+        InfluxConditionWrapper<T> instance = create(this.parent);
         // 同步匿名 wrapper 的上下文（参数数量）
         instance.paramIdx = paramIdx;
         consumer.accept(instance);

@@ -1,7 +1,7 @@
 package com.wolfhouse.influxclient.client;
 
 import com.influxdb.v3.client.InfluxDBClient;
-import com.wolfhouse.influxclient.core.ConditionWrapper;
+import com.wolfhouse.influxclient.core.InfluxConditionWrapper;
 import com.wolfhouse.influxclient.core.InfluxObjMapper;
 import com.wolfhouse.influxclient.core.InfluxQueryWrapper;
 import com.wolfhouse.influxclient.core.PointBuilder;
@@ -47,7 +47,7 @@ public class InfluxClient {
 
     public <T extends AbstractActionInfluxObj> Long count(InfluxQueryWrapper<T> wrapper) {
         // 获取条件构造器
-        ConditionWrapper<T> conditions = wrapper.getConditionWrapper();
+        InfluxConditionWrapper<T> conditions = wrapper.getConditionWrapper();
         if (conditions == null) {
             return count(wrapper.getMeasurement(), null, null);
         }
@@ -115,7 +115,7 @@ public class InfluxClient {
         if (count(wrapper) < 1) {
             return Stream.empty();
         }
-        ConditionWrapper<?> condition = wrapper.getConditionWrapper();
+        InfluxConditionWrapper<?> condition = wrapper.getConditionWrapper();
         return doQuery(wrapper.build(), condition == null ? null : condition.getParameters());
     }
 
@@ -126,7 +126,7 @@ public class InfluxClient {
      * @return 查询结果的流，每个结果为一个包含列值的数组。
      */
     private Stream<Object[]> doQuery(InfluxQueryWrapper<?> wrapper) {
-        ConditionWrapper<?> condition = wrapper.getConditionWrapper();
+        InfluxConditionWrapper<?> condition = wrapper.getConditionWrapper();
         return doQuery(wrapper.build(), condition == null ? null : condition.getParameters());
     }
 
