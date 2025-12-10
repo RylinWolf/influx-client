@@ -1,6 +1,6 @@
 package com.wolfhouse.influxclient.client;
 
-import com.influxdb.v3.client.internal.InfluxDBClientImpl;
+import com.influxdb.v3.client.InfluxDBClient;
 import com.wolfhouse.influxclient.core.ConditionWrapper;
 import com.wolfhouse.influxclient.core.InfluxObjMapper;
 import com.wolfhouse.influxclient.core.InfluxQueryWrapper;
@@ -24,7 +24,7 @@ import java.util.stream.Stream;
 @Slf4j
 @RequiredArgsConstructor
 public class InfluxClient {
-    public final InfluxDBClientImpl client;
+    public final InfluxDBClient client;
 
     public <T extends AbstractActionInfluxObj> void insert(T obj) {
         try {
@@ -139,11 +139,11 @@ public class InfluxClient {
      * @return 映射后的目标类型集合。
      */
     public <E extends AbstractBaseInfluxObj, T extends AbstractActionInfluxObj> Collection<E> queryMap(InfluxQueryWrapper<T> wrapper, Class<E> clazz) {
-        Stream<Object[]> query = query(wrapper);
-        if (query.findAny().isEmpty()) {
+        List<Object[]> res = query(wrapper).toList();
+        if (res.isEmpty()) {
             return Collections.emptyList();
         }
-        return InfluxObjMapper.mapAll(query, clazz, wrapper);
+        return InfluxObjMapper.mapAll(res.stream(), clazz, wrapper);
     }
 
     /**
@@ -153,11 +153,11 @@ public class InfluxClient {
      * @return 查询结果的列表，每个列表项为一个映射，表示查询结果中的各列及其对应的值。
      */
     public List<Map<String, Object>> queryMap(InfluxQueryWrapper<?> wrapper) {
-        Stream<Object[]> query = query(wrapper);
-        if (query.findAny().isEmpty()) {
+        List<Object[]> res = query(wrapper).toList();
+        if (res.isEmpty()) {
             return Collections.emptyList();
         }
-        return InfluxObjMapper.compressToMapList(query, wrapper);
+        return InfluxObjMapper.compressToMapList(res.stream(), wrapper);
     }
 
     /**
@@ -168,11 +168,11 @@ public class InfluxClient {
      */
     @Nullable
     public InfluxResult queryResult(InfluxQueryWrapper<?> wrapper) {
-        Stream<Object[]> query = query(wrapper);
-        if (query.findAny().isEmpty()) {
-            return null;
+        List<Object[]> res = query(wrapper).toList();
+        if (res.isEmpty()) {
+            return new InfluxResult();
         }
-        return InfluxObjMapper.mapAllToResult(query, wrapper.getMixedTargetsWithAlias());
+        return InfluxObjMapper.mapAllToResult(res.stream(), wrapper.getMixedTargetsWithAlias());
     }
 
     /**

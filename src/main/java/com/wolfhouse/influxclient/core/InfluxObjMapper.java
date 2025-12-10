@@ -184,6 +184,10 @@ public class InfluxObjMapper {
         return new InfluxResult().addAllRow(compressToMapList(objStream, targets));
     }
 
+    public static InfluxResult mapAllToResult(Collection<Object[]> objList, SequencedCollection<String> targets) {
+        return new InfluxResult().addAllRow(compressToMapList(objList.stream(), targets));
+    }
+
     /**
      * 递归查找字段（支持 private 和父类字段）
      */

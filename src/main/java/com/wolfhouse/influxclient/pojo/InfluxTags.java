@@ -14,7 +14,7 @@ import java.util.Set;
  * @author Rylin Wolf
  */
 @Slf4j
-@ToString
+@ToString(includeFieldNames = false)
 public class InfluxTags {
 
     private final LinkedHashMap<String, String> tags;

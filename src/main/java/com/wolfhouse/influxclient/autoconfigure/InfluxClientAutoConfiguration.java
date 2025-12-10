@@ -27,8 +27,8 @@ import org.springframework.context.annotation.Bean;
 public class InfluxClientAutoConfiguration {
 
     @Bean(destroyMethod = "close")
-    @ConditionalOnMissingBean(InfluxDBClientImpl.class)
-    public InfluxDBClientImpl influxDbClient(InfluxDbProperties properties) {
+    @ConditionalOnMissingBean(InfluxDBClient.class)
+    public InfluxDBClient influxDbClient(InfluxDbProperties properties) {
         log.info("[InfluxClientStarter] 正在初始化InfluxDB客户端... {}", properties.getUrl());
         String token = properties.getToken();
         if (token == null || token.isEmpty()) {
@@ -48,7 +48,7 @@ public class InfluxClientAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(InfluxClient.class)
-    public InfluxClient influxClient(InfluxDBClientImpl influxDbClient) {
+    public InfluxClient influxClient(InfluxDBClient influxDbClient) {
         return new InfluxClient(influxDbClient);
     }
 }

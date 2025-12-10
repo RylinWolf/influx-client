@@ -13,7 +13,7 @@ import java.util.Map;
  * @author Rylin Wolf
  */
 @Slf4j
-@ToString
+@ToString(includeFieldNames = false)
 public class InfluxFields {
     private final LinkedHashMap<String, Object> fields;
 
