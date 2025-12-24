@@ -11,7 +11,6 @@ import java.util.Set;
 /**
  * InfluxDB数据映射对象的抽象基类。
  * 该类提供了向 InfluxDB 写入、查询数据所需的基本结构和方法。
- * 子类继承后，应当重写 {@link AbstractActionInfluxObj#tableName()} ()}方法，或通过 `super.measurement` 设置该超类的 measurement 字段值。
  * <p>
  * 该类在添加标签、字段时会进行交叉检查，确保标签和字段没有交集。
  *
@@ -28,6 +27,10 @@ public abstract class AbstractActionInfluxObj extends AbstractBaseInfluxObj {
 
     protected AbstractActionInfluxObj() {
         super();
+    }
+
+    protected AbstractActionInfluxObj(String tableName) {
+        super(tableName);
     }
 
     /**

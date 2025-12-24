@@ -5,6 +5,7 @@ import com.wolfhouse.influxclient.typehandler.InstantTypeHandler;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
+import lombok.experimental.Accessors;
 
 import java.time.Instant;
 
@@ -13,26 +14,25 @@ import java.time.Instant;
  */
 @Getter
 @ToString
+@Accessors(chain = true, fluent = true)
 @SuppressWarnings({"UnusedReturnValue", "unused"})
 public abstract class AbstractBaseInfluxObj {
     /** InfluxDB的度量名称，用于指定数据写入的表 */
-    protected final String  measurement;
+    @Setter
+    protected String  measurement;
     /** 数据点的时间戳 */
     @Setter
     @InfluxTypeHandler(InstantTypeHandler.class)
-    protected       Instant time;
+    protected Instant time;
 
     protected AbstractBaseInfluxObj() {
-        this.time        = Instant.now();
-        this.measurement = tableName();
+        this(null);
     }
 
-    /**
-     * 设置 InfluxDB 对象对应的表名
-     *
-     * @return 表名
-     */
-    protected abstract String tableName();
+    protected AbstractBaseInfluxObj(String tableName) {
+        this.time        = Instant.now();
+        this.measurement = tableName;
+    }
 
     /**
      * 使用当前的时间，刷新时间戳数据

@@ -24,9 +24,4 @@ public class SampleActionInfluxObj extends AbstractActionInfluxObj {
         addTags(InfluxTags.from("sensor_id", null)
                           .add("sensor_type", null));
     }
-
-    @Override
-    protected String tableName() {
-        return "temperature";
-    }
 }

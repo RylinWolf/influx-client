@@ -377,7 +377,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
         // 目标表名若为空，则从引用对象中获取
         if (this.measurement == null) {
             String m;
-            if (reference == null || (m = reference.getMeasurement()) == null) {
+            if (reference == null || (m = reference.measurement()) == null) {
                 throw new IllegalArgumentException("无目标表！");
             }
             return measurement(m).aliasMap.isEmpty();
@@ -441,12 +441,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
         if (this.reference == null) {
             log.debug("【InfluxQueryWrapper】引用对象为空，尝试初始化...");
             String m = this.measurement;
-            this.reference = new AbstractActionInfluxObj() {
-                @Override
-                protected String tableName() {
-                    return m;
-                }
-            };
+            this.reference = new AbstractActionInfluxObj(m) {};
         }
         loadReference();
     }
@@ -466,7 +461,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
         log.debug("【InfluxQueryWrapper】加载引用对象...");
         assert this.reference != null : "引用对象为空！";
         String m = this.measurement;
-        this.measurement = m == null ? this.reference.getMeasurement() : m;
+        this.measurement = m == null ? this.reference.measurement() : m;
         this.tags        = this.reference.getTags();
         this.fields      = this.reference.getFields();
         log.debug("【InfluxQueryWrapper】引用对象加载完毕");

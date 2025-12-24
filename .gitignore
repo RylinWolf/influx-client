@@ -40,6 +40,6 @@ build/
 
 
 ### CUSTOM ###
-/test
+src/test/
 application-local.yml
 application-dev.yml

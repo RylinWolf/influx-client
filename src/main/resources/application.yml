@@ -1,3 +1,6 @@
 influx:
   database: influx_client_demo
   url: http://localhost:8181
+logging:
+  level:
+    com.wolfhouse.influxclient: debug

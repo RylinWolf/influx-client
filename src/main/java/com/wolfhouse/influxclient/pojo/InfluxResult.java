@@ -21,7 +21,7 @@ public class InfluxResult extends AbstractBaseInfluxObj {
 
     {
         // 应该依赖于数据的时间结果，因此这里的时间对象是无效的
-        super.setTime(null);
+        super.time(null);
     }
 
     public InfluxResult addRow(Map<String, Object> result) {
@@ -42,10 +42,6 @@ public class InfluxResult extends AbstractBaseInfluxObj {
         return this.results;
     }
 
-    @Override
-    protected String tableName() {
-        return "";
-    }
 
     public static class InfluxRow {
         @Getter

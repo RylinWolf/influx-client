@@ -20,8 +20,4 @@ public class SampleInfluxObj extends AbstractBaseInfluxObj {
     private Double co2;
     private Double temperature;
 
-    @Override
-    protected String tableName() {
-        return "temperature";
-    }
 }
