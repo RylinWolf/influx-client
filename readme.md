@@ -1,6 +1,4 @@
-<div align="center">
-  # Influx-Client
-</div>
+# <div align="center">Influx-Client</div>
 
 对 `InfluxDBClient` 进行二次封装，提供简单的 Query、Insert 操作。
 
