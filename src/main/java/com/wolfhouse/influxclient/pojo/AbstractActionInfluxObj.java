@@ -38,9 +38,10 @@ public abstract class AbstractActionInfluxObj extends AbstractBaseInfluxObj {
      *
      * @param tags 要添加的标签集合，包含多个键值对形式的标签，用于标识数据的维度信息。
      */
-    public final void addTags(InfluxTags tags) {
+    public final AbstractActionInfluxObj addTags(InfluxTags tags) {
         assert tags != null : "标签对象不得为 null";
         this.addTag(tags.toMap());
+        return this;
     }
 
     /**
@@ -48,9 +49,10 @@ public abstract class AbstractActionInfluxObj extends AbstractBaseInfluxObj {
      *
      * @param fields 要添加的字段集合，包含多个键值对形式的字段，用于存储数据的具体值和内容。
      */
-    public final void addFields(InfluxFields fields) {
+    public final AbstractActionInfluxObj addFields(InfluxFields fields) {
         assert fields != null : "字段对象不得为 null";
         this.addField(fields.toMap());
+        return this;
     }
 
     /**
@@ -61,18 +63,18 @@ public abstract class AbstractActionInfluxObj extends AbstractBaseInfluxObj {
      * @param value 标签的值，对应指定键的具体值，存储标签的内容。
      * @return 当前对象的标签集合，包含新的标签数据。
      */
-    public final InfluxTags addTag(String key, String value) {
-        // 检查标签中是否包含该字段
+    public final AbstractActionInfluxObj addTag(String key, String value) {
+        // 检查字段中是否包含该字段
         if (this.fields != null && this.fields.containsKey(key)) {
             throw new DuplicateFieldTagException(key);
         }
         // 若标签未初始化，则初始化标签对象
         if (this.tags == null) {
             this.tags = InfluxTags.from(key, value);
-            return this.tags;
+            return this;
         }
         this.tags.add(key, value);
-        return this.tags;
+        return this;
     }
 
     /**
@@ -82,7 +84,7 @@ public abstract class AbstractActionInfluxObj extends AbstractBaseInfluxObj {
      * @param tags 要添加的标签集合，包含多个键值对形式的标签，用于标识数据的维度信息。
      * @return 添加完成后的标签集合。
      */
-    public final InfluxTags addTag(Map<String, String> tags) {
+    public final AbstractActionInfluxObj addTag(Map<String, String> tags) {
         // 字段中是否有重复键
         if (this.fields != null) {
             Set<String> fieldKeys = this.fields.getFieldKeys();
@@ -94,9 +96,10 @@ public abstract class AbstractActionInfluxObj extends AbstractBaseInfluxObj {
         }
         if (this.tags == null) {
             this.tags = InfluxTags.of(tags);
-            return this.tags;
+            return this;
         }
-        return this.tags.addAll(tags);
+        this.tags.addAll(tags);
+        return this;
     }
 
     /**
@@ -107,7 +110,7 @@ public abstract class AbstractActionInfluxObj extends AbstractBaseInfluxObj {
      * @param value 字段的值，对应指定键的具体值，存储字段的内容。
      * @return 当前对象的字段集合，包含新的字段数据。
      */
-    public final InfluxFields addField(String key, Object value) {
+    public final AbstractActionInfluxObj addField(String key, Object value) {
         // 检查标签中是否包含该字段
         if (this.tags != null && this.tags.containsKey(key)) {
             throw new DuplicateFieldTagException(key);
@@ -115,10 +118,10 @@ public abstract class AbstractActionInfluxObj extends AbstractBaseInfluxObj {
         // 若字段未初始化，则初始化字段对象
         if (this.fields == null) {
             this.fields = InfluxFields.from(key, value);
-            return this.fields;
+            return this;
         }
         this.fields.add(key, value);
-        return this.fields;
+        return this;
     }
 
     /**
@@ -128,7 +131,7 @@ public abstract class AbstractActionInfluxObj extends AbstractBaseInfluxObj {
      * @param fields 要添加的字段集合，包含多个键值对形式的字段，用于存储数据的具体值和内容。
      * @return 当前对象的字段集合，包含新的字段数据。
      */
-    public final InfluxFields addField(Map<String, Object> fields) {
+    public final AbstractActionInfluxObj addField(Map<String, Object> fields) {
         // 标签中是否有重复键
         if (this.tags != null) {
             Set<String> tagKeys = this.tags.getTagKeys();
@@ -140,9 +143,10 @@ public abstract class AbstractActionInfluxObj extends AbstractBaseInfluxObj {
         }
         if (this.fields == null) {
             this.fields = InfluxFields.of(fields);
-            return this.fields;
+            return this;
         }
-        return this.fields.addAll(fields);
+        this.fields.addAll(fields);
+        return this;
     }
 
     /**
