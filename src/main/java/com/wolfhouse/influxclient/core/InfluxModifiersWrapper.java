@@ -4,6 +4,7 @@ import com.wolfhouse.influxclient.pojo.AbstractActionInfluxObj;
 import lombok.Getter;
 import lombok.Setter;
 
+import javax.annotation.Nullable;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -116,7 +117,7 @@ public class InfluxModifiersWrapper<T extends AbstractActionInfluxObj> {
 
     // region 执行构建
 
-    public String build() {
+    public @Nullable String build() {
         return this.parent.build();
     }
 

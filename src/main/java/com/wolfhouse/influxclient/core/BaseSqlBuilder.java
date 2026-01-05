@@ -1,5 +1,7 @@
 package com.wolfhouse.influxclient.core;
 
+import javax.annotation.Nullable;
+
 /**
  * SQL 构造器模板类，规范 SQL 构建的方法步骤
  *
@@ -48,7 +50,7 @@ public abstract class BaseSqlBuilder {
      * 3. 构建目标表
      * 4. 构建查询条件
      */
-    public String build() {
+    public @Nullable String build() {
         if (!validate()) {
             return null;
         }

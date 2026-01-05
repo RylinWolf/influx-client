@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 /**
- * ConditionWrapper 是一个静态内部类，用于组装 SQL 条件查询的构造工具。
+ * ConditionWrapper 用于组装 SQL 条件查询的构造工具。
  * 该类提供多种方法来构建 AND、OR 逻辑和比较运算符（如 =、<、> 等）条件。
  * 通过动态绑定参数和目标列名称，帮助避免 SQL 注入问题。
  * <p>
@@ -60,7 +60,7 @@ public class InfluxConditionWrapper<T extends AbstractActionInfluxObj> {
      *
      * @return 返回新创建的 ConditionWrapper 实例
      */
-    private static InfluxConditionWrapper<?> create() {
+    private static <T extends AbstractActionInfluxObj> InfluxConditionWrapper<T> create() {
         return new InfluxConditionWrapper<>();
     }
 
@@ -71,7 +71,7 @@ public class InfluxConditionWrapper<T extends AbstractActionInfluxObj> {
      * @return 返回新创建的 ConditionWrapper 实例
      */
     public static <T extends AbstractActionInfluxObj> InfluxConditionWrapper<T> create(InfluxQueryWrapper<T> parent) {
-        InfluxConditionWrapper<T> wrapper = new InfluxConditionWrapper<>();
+        InfluxConditionWrapper<T> wrapper = create();
         wrapper.parent = parent;
         return wrapper;
     }

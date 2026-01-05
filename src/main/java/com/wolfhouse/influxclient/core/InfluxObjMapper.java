@@ -154,7 +154,7 @@ public class InfluxObjMapper {
                 log.error("查询参数数与结果集不一致: {}, {}", obj, targetsArray);
                 return null;
             }
-            Map<String, Object> map = new HashMap<>();
+            Map<String, Object> map = new HashMap<>(obj.length);
             for (int i = 0; i < obj.length; i++) {
                 // 按位置匹配当前字段与字段名
                 map.put(targetsArray[i], obj[i]);

@@ -25,7 +25,7 @@ public class PointBuilder {
      * @throws IllegalArgumentException 如果对象的字段和标签中存在重复的键
      */
     public static <T extends AbstractActionInfluxObj> Point build(T obj) {
-        log.debug("构建对象: {}", obj);
+        log.debug("【PointBuilder】构建对象: {}", obj);
         // 1. 验证对象
         if (!valid(obj)) {
             throw new InfluxObjValidException();
@@ -59,18 +59,18 @@ public class PointBuilder {
     public static <T extends AbstractActionInfluxObj> boolean valid(T obj) {
         // 是否为 null
         if (obj == null) {
-            throw new NullPointerException("对象不得为空!");
+            throw new NullPointerException("【PointBuilder】对象不得为空!");
         }
         Set<String> fields = new HashSet<>(obj.getFieldKeys());
         Set<String> tags   = new HashSet<>(obj.getTagKeys());
-        // 查询条件为空(字段、标签均为空)
+        // 内容为空(字段、标签均为空)
         if (fields.isEmpty() && tags.isEmpty()) {
-            throw new IllegalArgumentException("查询条件不得为空!");
+            throw new IllegalArgumentException("【PointBuilder】内容 (标签/字段) 不得全为空!");
         }
         // 非法格式: 字段、标签有重复字段
         fields.retainAll(tags);
         if (!fields.isEmpty()) {
-            throw new IllegalArgumentException("字段和标签不得有重复!");
+            throw new IllegalArgumentException("【PointBuilder】字段和标签不得有重复!");
         }
         return true;
     }
