@@ -1,135 +1,231 @@
-# Influx-Client 
+<div align="center">
+  # Influx-Client
+</div>
 
 对 `InfluxDBClient` 进行二次封装，提供简单的 Query、Insert 操作。
 
 **注意：InfluxDB 的 Java 客户端仅支持 添加、查询数据操作，不支持管理数据。**
 
-# 思路
+# 项目介绍
 
-**添加数据**
+`Influx-Client` 是一个基于 InfluxDB Java 客户端（V3）开发的轻量级二次封装框架。它旨在简化 Java 应用与 InfluxDB 时序数据库之间的交互，通过提供类似 MyBatis-Plus 的流式 API 和对象映射（ORM）机制，显著降低了开发者的上手难度和代码冗余。
 
-客户端通过写入点 `Point` 来创建 line protocol。添加数据时，需要设置写入点的表、标签、字段、时间戳。
+### 核心特性
 
-将添加的数据封装为抽象对象，包含表、标签、字段、时间戳信息，除时间戳外均需重写。时间戳可选重写，默认为创建对象时的时间。
+- **轻量级封装**：对 `InfluxDBClient` 进行深度简化，保留核心功能的同时屏蔽底层复杂性。
+- **对象映射 (ORM)**：支持将 Java 对象直接映射为 InfluxDB 的度量（Measurement），自动处理标签（Tags）和字段（Fields）的区分与转换。
+- **流式查询构建器**：引入 `InfluxQueryWrapper`，支持 SQL 风格的条件构造，提供 `where()`、`modify()` 等链式方法，轻松实现复杂查询。
+- **Spring Boot 集成**：提供 Starter 组件，支持通过 `application.yml` 快速配置，并利用自动装配实现 `InfluxClient` 的零配置注入。
+- **多结果处理**：内置结果映射器，可将查询结果自动转换为 POJO 列表、Map 集合、结果封装对象（InfluxResult）、分页对象（InfluxPage）或原生数据流。
+- **安全性与校验**：在数据插入前自动进行标签与字段的交叉校验，防止非法的 Schema 写入。
 
-由于表中每条数据可以有不同的结构，所以表和对象并不是一一对应的。也就是说，一个表可以有多种对象。但是为了方便操作，一个对象只绑定给一个表。
+### 适用场景
 
-需要注意，标签、字段在查询结果中无法标识，所以类中应当定义该类的标签、字段组。
-
-InfluxDB 插入数据无需关注数据表是否存在，仅需直接插入数据即可。但是表不应随意自定，应当提供简单的约束（比如通过枚举）。
-
----
-
-**查询数据**
-
-客户端没有提供封装，需要通过 SQL 或 InfluxQL 查询。本客户端选择使用 SQL 作为查询语法。
-
-封装查询 Wrapper，可以通过泛型类指定目标对象，从而通过方法调用动态构建 SQL；也可不指定泛型类，构建指定表、但不受字段约束的 SQL。
-
-查询方法会返回结果流 `Stream<Object[]>`，Object 数组为按照顺序查询的字段的值。可以在构造查询语句时保存查询参数，再根据参数和顺序一一对应到对象中返回。
-
-由于表和对象不是一一对应，所以查询方法应当指定一个泛型，用于封装为指定的对象。
-
----
-
-**查询条件**
-
-对于查询条件，封装条件 Wrapper，作为查询 Wrapper 的内部类，用于构建通用的查询条件，由查询 Wrapper 尽可能确保条件字段合法性。
-
-通过链式调用添加查询条件。
-
-查询条件分为两大类：
-
-1. 连接条件：and (), or ()，连接其他查询条件语句
-2. 基本条件：>、>=、<、<=、= 等，由字段名、值组成
-
----
-
-**查询约束**
-
-查询约束为查询条件之后的内容，包括限制数量、分组、聚合等。
-
-目前仅计划实现限制数量 (`limit`) 。
-
----
-
-**结果映射**
-
-`InfluxDbClient` 查询后会返回 `Stream<Object[]>` 流对象，由 Object 数组组成。
-
-每个 Object 数组都是一行数据，一一对应查询参数。
+适用于需要频繁进行 InfluxDB 数据写入、按条件检索以及分页展示的 Java/Spring Boot 项目，特别是对于不希望编写原始 SQL/Flux 语句并追求开发效率的项目。
 
 
+# 上手使用
 
-# 实现
+本节展示如何使用 `Influx Client` 简化对 Influx DB 的操作。
 
-## 线程安全 暂未实现
+## 初始化客户端
 
-要确保字段、标签类的操作是线程安全的。
+### Spring Boot 项目
 
-目前的想法是自定义线程安全、维护存储顺序的类，通过**ConcurrentHashMap + 读写锁维护顺序**。
+1. 在 `application.yml` 或 `application.properties` 中添加配置：
+
+```yaml
+influx:
+  url: http://localhost:8086 # 替换为你的 Influx 数据库地址
+  database: my_bucket        # 替换为你的 Influx 数据库名
+```
+
+2. 在环境变量中配置 `INFLUX_TOKEN` 
+
+3. 之后可以直接在代码中注入 `InfluxClient`：
+
+```java
+@Autowired
+private InfluxClient influxClient;
+```
+
+### 非 Spring Boot 项目
+
+虽然本项目提供了 Spring Boot Starter，但在非 Spring Boot 环境中同样可以轻松使用。
+
+- **类加载安全性**：虽然 `InfluxClientAutoConfiguration` 类中使用了 Spring 的注解和类，但由于 `InfluxClient` 核心逻辑与之处于不同的包结构下（`client` 包 vs `autoconfigure` 包），在非 Spring 环境中，只要你不主动 `import` 自动配置类，JVM 就不会尝试加载它。因此，即便依赖库中包含这些 `.class` 文件，也不会在运行时抛出 `NoClassDefFoundError`。
+- **依赖隔离**： `pom.xml` 中  Spring 相关依赖为 `<optional>true</optional>`。这意味着如果你是在一个非 Spring 项目中引入本框架，Maven 不会下载 Spring 相关的 jar 包，从而保持了项目的轻量性。
+
+为了确保在脱离 Spring Boot 的环境下正常运行，请遵循以下改造步骤：
+
+#### 1. 依赖配置
+
+如果你不使用 Spring Boot，请确保你的 `pom.xml` 中排除了 Spring 相关的自动配置依赖，或者直接引入核心依赖所需的库。本项目已将 Spring Boot 相关依赖标记为 `optional`，因此在非 Spring 环境下，它们不会被强制引入。
+
+你至少需要以下依赖：
+
+```xml
+<dependencies>
+    <!-- InfluxDB V3 SDK -->
+    <dependency>
+        <groupId>com.influxdb</groupId>
+        <artifactId>influxdb3-java</artifactId>
+        <version>1.7.0</version>
+    </dependency>
+    <!-- Lombok (编译期插件) -->
+    <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <version>1.18.30</version>
+        <scope>provided</scope>
+    </dependency>
+</dependencies>
+```
+
+#### 2. 客户端初始化
+
+在非 Spring 环境下，你需要手动创建 `InfluxDBClient` 实例，并将其注入到 `InfluxClient` 中。
+
+```java
+import com.influxdb.v3.client.InfluxDBClient;
+import com.wolfhouse.influxclient.client.InfluxClient;
+
+// 1. 创建原生的 InfluxDBClient (SDK 提供)
+InfluxDBClient influxDBClient = InfluxDBClient.getInstance(
+        "http://localhost:8086",         // 数据库地址
+        "your-token".toCharArray(),       // 访问令牌
+        "my_bucket"                      // 数据库名
+);
+
+// 2. 实例化 InfluxClient (本项目提供)
+// 注意：不要使用 InfluxClientAutoConfiguration，它是为 Spring Boot 设计的
+InfluxClient influxClient = new InfluxClient(influxDBClient);
+
+// 3. 之后即可正常使用 influxClient 进行 insert/query 操作
+
+// 4. 程序结束时记得关闭资源
+// influxClient.close();
+```
+
+#### 3. 注意事项
+
+- **配置管理**：由于脱离了 Spring Boot 的 `application.yml` 自动加载机制，你需要自行管理数据库连接配置（如从配置文件或环境变量读取）。
+- **生命周期**：你需要手动管理 `InfluxClient` 的生命周期，确保在不再使用时调用 `close()` 方法以释放底层 HTTP 连接。
+- **日志**：本项目核心逻辑使用 SLF4J 记录日志。在非 Spring 项目中，你需要自行引入日志实现（如 Logback 或 Log4j2）。
 
 ## 添加数据
 
-通过 AbstractInsertObj 约束并提供获取标签、字段的键值对方法。需要作为 Influx 对象映射的类应继承该抽象类，并重写其中的 `tableName` 方法，在该方法中返回表名。
+要向 InfluxDB 添加数据，首先需要定义一个继承自 `AbstractActionInfluxObj` 的类来映射数据表。
 
-需要注意，该抽象类的子类若需要重写抽象类，要注意字段隐藏的问题，修改字段时尽量使用抽象类提供的方法修改，或通过 `super.obj=newObj` 的方式直接修改父类属性。
+### 1. 定义映射类
 
- 
+```java
+@Data
+public class SensorData extends AbstractActionInfluxObj {
+    public SensorData() {
+        super("t_sensor_record"); // 指定度量（表名）
+        // 初始化字段和标签的结构（可选，更规范，也方便后续使用 Wrapper 校验）
+        addTags(InfluxTags.from("sensor_id", null).add("type", null));
+        addFields(InfluxFields.from("temperature", null).add("humidity", null));
+    }
+}
+```
 
-## 查询数据
+### 2. 插入数据
 
-目前不支持通过查询链对连表、分组、聚合等复杂查询进行简化。
+```java
+SensorData data = new SensorData();
+data.addTag("sensor_id", "SN-001")
+    .addTag("type", "DHT11")
+    .addField("temperature", 25.5)
+    .addField("humidity", 60.2)
+    .refreshTimestamp(); // 设置为当前时间
 
-通过 InfluxQueryWrapper 的静态方法创建查询链：
-
-- create：创建匿名查询链，不会约束查询列名
-- from：创建指定映射对象的查询链，查询的列名会收到该对象的约束
-- fromBuild：创建指定映射对象的查询链并立刻构建查询语句，返回构建后的 SQL 语句
-
-对于查询链，可以链式调用查询方法，从而设置查询目标列。
-
-- select：包含多个重载，可以实现指定字符串字段，或从 InfluxFields、InfluxTags 中导入查询字段
-- selectSelfTag：提取已导入的映射对象的标签，作为查询目标
-- selectSelfField：提取已导入的映射对象的字段，作为查询目标
-- withTime：指定查询目标列中是否包含时间戳，默认为 true
-
-## 结果映射
-
-目前支持查询结果的蛇行命名（下划线命名）和小驼峰命名映射到类对象字段（规定类对象字段应为小驼峰命名法）。
-
-InfluxDB 返回的查询结果集为 Object 数组流，每个数组对应着一行数据。
-
-通过查询链的属性，可以获取到维护顺序的查询字段，根据结果集下标与查询字段顺序，对字段和结果进行一一映射，构建为最终的结果集。
-
-最终的结果集可以有多种形态：
-
-- Map：字符串到 Object 的映射，最基本的结果集形态
-- AbstractBeanInfluxObj 的子类：自定义的类，继承该父类后添加字段，工具将通过反射构建实例，并通过结果集的字段名为实例字段注入数据，最终返回该类的实例
-- InfluxResult：本工具提供的 AbstractBeanInfluxObj 的子类，维护一个内部类 InfluxRow 的列表，通过该内部类映射数据行（一个数据行对应一个结果集），核心基于 Map 实现。
-
-
-
-# 使用方法
-
-## 添加数据
-
-
+influxClient.insert(data);
+```
 
 ## 查询数据
+
+`Influx Client` 提供了 `InfluxQueryWrapper` 来构建 SQL 查询。
 
 ### 构建查询目标
 
+可以使用 `select` 方法指定要查询的列，或使用快捷方法：
+
+```java
+InfluxQueryWrapper<SensorData> wrapper = InfluxQueryWrapper
+  .from(new SensorData())
+  .select("temperature","humidity") // 选择指定列
+  // .selectAll()                  // 选择所有标签和字段
+  // .selectSelfTag()                // 仅选择对象定义的标签
+  .withTime(true);                   // 是否包含时间戳，默认为 true
+```
+
 ### 构建查询条件
 
+通过 `where()` 进入条件构建模式：
 
+```java
+wrapper.where()
+    .eq("sensor_id","SN-001")
+    .gt("temperature",20)
+    .lt("temperature",30)
+    .or(w ->w.eq("type","DHT22"));
+```
+
+支持嵌套条件：
+
+```java
+wrapper.where()
+    .eq("sensor_id","SN-001")
+    .and(w ->w.gt("temperature",20).and(w2 -> w2.lt("temperature",30)))
+    .or(w ->w.eq("type","DHT22"));
+```
+
+
+
+### 构建查询修饰符
+
+通过 `modify()` 构建排序、限制和偏移：
+
+```java
+wrapper.modify()
+    .orderBy(false,"time") // 按照时间降序排列
+    .limit(10,0);          // 限制 10 条，偏移 0
+```
+
+### 执行查询并映射结果
+
+查询结果可以映射为 POJO（需继承 `AbstractBaseInfluxObj`）、结果封装对象（InfluxResult）或简单的 `Map` 列表：
+
+```java
+// 1. 映射为实体类列表 (最常用)
+// 假设 SensorDataResult 继承了 AbstractBaseInfluxObj
+Collection<SensorDataResult> results = influxClient.queryMap(wrapper, SensorDataResult.class);
+
+// 2. 映射为 Map 列表 (键为列名，值为对应数据)
+List<Map<String, Object>> list = influxClient.queryMap(wrapper);
+
+// 3. 分页查询
+// 返回 InfluxPage 对象，包含总记录数、当前页记录、页码等信息
+InfluxPage<SensorDataResult> page = influxClient.pagination(wrapper, SensorDataResult.class, 1, 10);
+
+// 4. 获取结果封装对象 (InfluxResult)
+InfluxResult result = influxClient.queryResult(wrapper);
+
+// 5. 获取底层结果流 (Stream<Object[]>)
+Stream<Object[]> stream = influxClient.query(wrapper);
+
+```
 
 # 主要相关类
 
 本项目的主要类可以分为以下类别：
 
 - 通用类：包括配置类、工具类、处理器类等；
-- 映射对象相关类：InfluxDB 数据表中的每一条记录，都可以映射到一个 Java 对象中，又称为 **领域对象（Domian）**。由于 InfluxDB 表结构的特殊性（不预先设定架构，且列名分为标签、字段两种），对于每个表，单独的一个领域对象无法很好表示。以上，为很好地映射一个 InfluxDB 记录，需要通过一系列类；
+- 映射对象相关类：InfluxDB 数据表中的每一条记录，都可以映射到一个 Java 对象中，又称为 **领域对象（Domian）**。由于 InfluxDB
+  表结构的特殊性（不预先设定架构，且列名分为标签、字段两种），对于每个表，单独的一个领域对象无法很好表示。以上，为很好地映射一个
+  InfluxDB 记录，需要通过一系列类；
 - 行为相关类：包括查询和插入行为，每种行为都有对应的相关类。
 
 ## 通用类
@@ -180,8 +276,6 @@ InfluxDB 返回的查询结果集为 Object 数组流，每个数组对应着一
 #### TimeStampUtils 时间戳工具
 
 封装了一系列方法，用于自动处理长整型，根据长度进行判断，并返回 Instant 对象。
-
-
 
 ## 映射对象相关类
 
@@ -236,8 +330,6 @@ InfluxDB 的查询结果封装，通过动态链表存放 Influx 结果行封装
 - total：总数量
 - records：结果集列表
 
-
-
 ## 行为相关类
 
 ### BaseSqlBuilder 基础 SQL 构造器模板
@@ -264,7 +356,8 @@ SQL 构造器模板，规范 SQL 构建的方法步骤。
 
 包含以下属性：
 
-- paramters：查询条件参数占位名与对应值的映射，键为自动构建的查询参数占位名，值为其应被替换的值。如：param_1 -> 1，则条件 SQL 中 ${param_1} 最终会被替换为 1。通过此解决 SQL 注入的问题。
+- paramters：查询条件参数占位名与对应值的映射，键为自动构建的查询参数占位名，值为其应被替换的值。如：param_1 -> 1，则条件 SQL
+  中 ${param_1} 最终会被替换为 1。通过此解决 SQL 注入的问题。
 - targets：查询条件的目标字段，用于 `InfluxQueryWrapper` 在执行构建时的列名存在性检查
 - builder：StringBuilder，实际的 SQL 语句
 - paramIdx：查询条件参数计数器，用于生成查询条件占位参数名称，从 1 开始
@@ -357,7 +450,8 @@ SQL 构造器模板，规范 SQL 构建的方法步骤。
 
 ### PointBuilder 端点构造器
 
-由于 InfluxDBClient 在插入数据时，使用的是 `Point 端点`封装类，而 InfluxClient（本项目）使用 `AbstractActionInfluxObj` 进一步封装了操作数据，所以需要此 端点构造器 将数据转换为端点。
+由于 InfluxDBClient 在插入数据时，使用的是 `Point 端点`封装类，而 InfluxClient（本项目）使用 `AbstractActionInfluxObj`
+进一步封装了操作数据，所以需要此 端点构造器 将数据转换为端点。
 
 包含以下方法：
 
@@ -369,7 +463,8 @@ SQL 构造器模板，规范 SQL 构建的方法步骤。
 
 ## com.google.protobuf.RuntimeVersion
 
-依赖版本冲突，InfluxDB Client V3 依赖 `org.apache.arrow.flight`，该项目使用 `Protobuf` 的 `4.30.2（或其他）` 版本。而当前项目运行时加载的项目版本更低。Protobuf 要求运行时版本不能低于代码生成的版本。
+依赖版本冲突，InfluxDB Client V3 依赖 `org.apache.arrow.flight`，该项目使用 `Protobuf` 的 `4.30.2（或其他）`
+版本。而当前项目运行时加载的项目版本更低。Protobuf 要求运行时版本不能低于代码生成的版本。
 
 修改 `pom.xml` 文件，添加以下依赖
 
@@ -381,29 +476,26 @@ SQL 构造器模板，规范 SQL 构建的方法步骤。
     <version>1.1-ALPHA</version>
 </dependency>
 
-<!-- 要填加以下两个依赖 - 强制升级 Protobuf 版本以解决 gencode 版本的冲突 -->
+        <!-- 要填加以下两个依赖 - 强制升级 Protobuf 版本以解决 gencode 版本的冲突 -->
 <dependency>
-    <groupId>com.google.protobuf</groupId>
-    <artifactId>protobuf-java</artifactId>
-    <version>4.30.2</version>
+<groupId>com.google.protobuf</groupId>
+<artifactId>protobuf-java</artifactId>
+<version>4.30.2</version>
 </dependency>
 <dependency>
-    <groupId>com.google.protobuf</groupId>
-    <artifactId>protobuf-java-util</artifactId>
-    <version>4.30.2</version>
+<groupId>com.google.protobuf</groupId>
+<artifactId>protobuf-java-util</artifactId>
+<version>4.30.2</version>
 </dependency>
-// ... existing code ...
+        // ... existing code ...
 ```
-
-
 
 ## API response error: write buffer error: parsing for line protocol failed
 
 - 先检查构建的 line protocol 格式是否正确
 
-  
-
-该问题的原因之一（本项目遇到的）是，在首次插入数据时，InfluxDB 会自动进行类型转换。如对于以下 line protocol，`groud_current` 在 Java 程序中设置为 0，则 InfluxDB 客户端对其转换后的类型是整型。
+该问题的原因之一（本项目遇到的）是，在首次插入数据时，InfluxDB 会自动进行类型转换。如对于以下 line protocol，`groud_current` 在
+Java 程序中设置为 0，则 InfluxDB 客户端对其转换后的类型是整型。
 
 ```
 t_detect_record,level-1=1831217700266381314,nodeId=1831217700266381314,sensorTypeId=6 dataStatus=1i,ground_current=0i,plug_current=0i 1765334351201945000
@@ -414,12 +506,3 @@ t_detect_record,level-1=1831217700266381314,nodeId=1831217700266381314,sensorTyp
 ```
 t_detect_record,level-1=1831217700266381314,nodeId=1831217700266381314,sensorTypeId=6 dataStatus=1i,ground_current=0.01,plug_current=0.1 1765334299898996171
 ```
-
-
-
-# 当前问题
-
-- measurement 隶属于对象，而不是类。应当通过注解方式将表与类绑定
-- 由于以上条，InfluxQueryWrapper 现在引用的是对象，而不是指定的类。解决以上问题后，要重构 InfluxQueryWrapper。
-- InfluxQueryWrapper 中，引用的映射对象，无法区分约束字段和要查询的字段。
-- 每次查询时，都要创建一个新的对象。可以提高兼容度，对于不需要区分标签和字段的类，通过注解控制是否反射获取类字段作为查询参数（需要进一步思考，现在要对硬编码的传感器类型解耦）
