@@ -32,7 +32,6 @@ public class InfluxClient {
         } catch (Exception e) {
             log.error("【InfluxClient】插入数据失败: {}", e.getMessage(), e);
             throw new InfluxClientInsertException(e);
-
         }
     }
 
@@ -203,5 +202,15 @@ public class InfluxClient {
                .limit(pageSize, (pageNum - 1) * pageSize);
         // 执行查询，设置结果集
         return page.records(queryMap(wrapper, clazz).stream().toList());
+    }
+
+    /**
+     * 关闭 InfluxDB 客户端连接，确保资源释放。
+     */
+    public void close() {
+        try {
+            this.client.close();
+        } catch (Exception ignored) {
+        }
     }
 }

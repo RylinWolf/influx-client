@@ -25,7 +25,6 @@ import org.springframework.context.annotation.Bean;
 @ConditionalOnClass({InfluxClient.class, InfluxDBClient.class})
 @ConditionalOnProperty(prefix = "influx", name = "url")
 public class InfluxClientAutoConfiguration {
-
     @Bean(destroyMethod = "close")
     @ConditionalOnMissingBean(InfluxDBClient.class)
     public InfluxDBClient influxDbClient(InfluxDbProperties properties) {
@@ -46,7 +45,7 @@ public class InfluxClientAutoConfiguration {
         }
     }
 
-    @Bean
+    @Bean(destroyMethod = "close")
     @ConditionalOnMissingBean(InfluxClient.class)
     public InfluxClient influxClient(InfluxDBClient influxDbClient) {
         return new InfluxClient(influxDbClient);
