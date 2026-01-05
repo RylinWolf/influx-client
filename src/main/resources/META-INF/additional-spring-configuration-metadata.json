@@ -1,0 +1,30 @@
+{
+  "groups": [
+    {
+      "name": "influx",
+      "type": "com.wolfhouse.influxclient.properties.InfluxDbProperties",
+      "sourceType": "com.wolfhouse.influxclient.properties.InfluxDbProperties",
+      "description": "InfluxDB client configuration properties."
+    }
+  ],
+  "properties": [
+    {
+      "name": "influx.url",
+      "type": "java.lang.String",
+      "description": "InfluxDB server URL, e.g. http://localhost:8086.",
+      "sourceType": "com.wolfhouse.influxclient.properties.InfluxDbProperties"
+    },
+    {
+      "name": "influx.token",
+      "type": "java.lang.String",
+      "description": "Access token for InfluxDB. Defaults to environment variable INFLUX_TOKEN if present.",
+      "sourceType": "com.wolfhouse.influxclient.properties.InfluxDbProperties"
+    },
+    {
+      "name": "influx.database",
+      "type": "java.lang.String",
+      "description": "Target database (bucket) name.",
+      "sourceType": "com.wolfhouse.influxclient.properties.InfluxDbProperties"
+    }
+  ]
+}
