@@ -126,39 +126,201 @@ InfluxDB 返回的查询结果集为 Object 数组流，每个数组对应着一
 
 # 主要相关类
 
-## 基础类
+本项目的主要类可以分为以下类别：
 
-### InfluxFields
+- 通用类：包括配置类、工具类、处理器类等；
+- 映射对象相关类：InfluxDB 数据表中的每一条记录，都可以映射到一个 Java 对象中，又称为 **领域对象（Domian）**。由于 InfluxDB 表结构的特殊性（不预先设定架构，且列名分为标签、字段两种），对于每个表，单独的一个领域对象无法很好表示。以上，为很好地映射一个 InfluxDB 记录，需要通过一系列类；
+- 行为相关类：包括查询和插入行为，每种行为都有对应的相关类。
 
- 
+## 通用类
 
-### InfluxTags
+### 配置类
+
+#### InfluxClientAutoConfiguration 自动装配类 < autoconfigure
+
+用于 SpringBoot 的自动装配，为导入该包的项目提供默认的 InfluxDBClient（来自 Influx SDK）以及 InfluxClient（本项目核心类）实现。
+
+该自动装配类引入了 `InfluxDbProperties` 配置（见下文），并在满足以下条件时才会配置：
+
+- 项目中包含 InfluxClient、InfluxDBClient 类
+- Spring 配置文件中配置了 InfluxDB 的相关配置（见 `resources.META-INF.additional-spring-configuration-metadata.json`）
+
+自动装配类中提供的默认类均可被覆盖（ConditionalOnMissingBean）
+
+#### InfluxDbProperties 配置属性类 < properties
+
+封装了要连接到 InfluxDB 所需的配置信息。对应着 spring 配置文件中的字段，以 `influx` 为前缀。
+
+包含以下属性
+
+- token：访问令牌，从环境变量 `INFLUX_TOKEN` 读取
+- url：服务器地址，对应配置文件 `influx.url`
+- database：目标数据库（Bucket），对应配置文件 `influx.database`
+
+### 类型处理器 < typehandler
+
+#### InfluxTypeHandler 类型处理器注解
+
+可用于字段，包含属性 `value`，用于指定实际要用的类型处理器 `TypeHandler`。
+
+#### TypeHandler 类型处理器接口
+
+类型处理器的接口，需要指定泛型。
+
+声明了一个 `getResult` 方法，接收一个 Object 对象，返回指定的泛型对象。
+
+#### InstantTypeHandler [Instant 时间戳] 类型处理器
+
+项目默认提供的用于处理 Instant 实例的类型处理器。
+
+通过自定义的时间戳工具 `TimeStampUtils` 将数字格式的字符串转为 Instant 对象。
+
+### 工具类 < utils
+
+#### TimeStampUtils 时间戳工具
+
+封装了一系列方法，用于自动处理长整型，根据长度进行判断，并返回 Instant 对象。
 
 
 
-### AbstractBaseInfluxObj
+## 映射对象相关类
 
-### AbstractActionInfluxObj
+### InfluxFields 字段映射
 
-### InfluxResult
+用于 `AbstractActionInfluxObj 抽象 Influx 操作对象`，表示 InfluxDB 的字段列。
 
-### InfluxPage
+使用基于链表的哈希表存储字段列，键 为字段名，值为该字段的值。维持插入顺序。
+
+提供一系列初始化方法及操作字段数据的方法。
+
+### InfluxTags 标签映射
+
+用于 `AbstractActionInfluxObj 抽象 Influx 操作对象`，表示 InfluxDB 的标签列。
+
+使用基于链表的哈希表存储标签列，键为标签名，值为该标签的值。维持插入顺序。
+
+提供一系列初始化方法及操作标签数据的方法。
+
+### AbstractBaseInfluxObj 抽象基础类
+
+InfluxDB 的基础映射类，封装了两个基本属性：
+
+- measurement：该对象对应的数据表
+- time：数据点的时间戳
+
+是 抽象操作类、结果类的父类。若要自定义返回结果映射，应继承该基础类。
+
+### AbstractActionInfluxObj 抽象操作类
+
+InfluxDB 的操作映射类，是写入、查询数据时使用的基类。包含两个基础属性：
+
+- tags：InfluxTags，标签数据
+- fields: InfluxFields，字段数据
+
+提供了一系列操作标签、字段的方法。添加时会进行交叉校验，确保标签和字段没有交集。
+
+### InfluxResult 结果封装类
+
+InfluxDB 的查询结果封装，通过动态链表存放 Influx 结果行封装类。
+
+#### InfluxRow 结果行封装类
+
+使用映射表存放结果集中的一行数据。结果集中的一行数据就对应一个结果行封装对象。
+
+### InfluxPage 结果分页类
+
+封装分页查询的结果，包含以下属性
+
+- pageNum：分页序号
+- pageSize：当前页结果数量
+- total：总数量
+- records：结果集列表
 
 
 
-### 
+## 行为相关类
 
+### BaseSqlBuilder 基础 SQL 构造器模板
 
+SQL 构造器模板，规范 SQL 构建的方法步骤。
 
-## 核心类
+包括以下默认方法：
 
-### BaseSqlBuilder
+- buildCondition：构建查询条件
+- buildModifies：构建查询修饰符（order by、limit 等）
+- build：执行构建步骤，依次进行验证、构建查询目标、构建查询表、构建条件/查询修饰符，最终返回构建好的 SQL 语句
 
-### InfluxConditionWrapper
+包含以下抽象方法：
 
-### InfluxModifiersWrapper
+- buildTarget：构建查询目标（标签、字段）
+- buildFromTable：构建查询目标表
+- validate：执行构建前的字段验证
+
+### InfluxConditionWrapper 条件 SQL 构造器
+
+构建 Influx 查询 SQL 中条件部分的工具类，结合 `InfluxQueryWrapper Influx 查询构造器` 使用，实现根据条件查询。
+
+提供了一系列构造查询条件的方法，支持链式调用，并基于 StringBuilder 实时保存查询条件。
+
+包含以下属性：
+
+- paramters：查询条件参数占位名与对应值的映射，键为自动构建的查询参数占位名，值为其应被替换的值。如：param_1 -> 1，则条件 SQL 中 ${param_1} 最终会被替换为 1。通过此解决 SQL 注入的问题。
+- targets：查询条件的目标字段，用于 `InfluxQueryWrapper` 在执行构建时的列名存在性检查
+- builder：StringBuilder，实际的 SQL 语句
+- paramIdx：查询条件参数计数器，用于生成查询条件占位参数名称，从 1 开始
+- parent：当前构造器所属的父构造器（`InfluxQueryWrapper`）
+
+包含以下方法：
+
+- and：构建 and 条件，包含两个方法重载。若已有条件以 and 结尾，则不再构建 and 关键字
+- or：构建 or 条件，包含两个方法重载。若已有条件以 or 结尾，则不再构建 or 关键字
+- eq：构建等于条件
+- ne：构建不等于条件
+- lt：构建小于条件
+- le：构建小于等于条件
+- gt：构建大于条件
+- ge：构建大于等于条件
+- appendConditionAndMask：私有方法，在已有条件上追加一个带有指定操作符的条件，根据已存在的条件自动添加 `and` 连接符
+- addColumnValueMapping：私有方法，将指定列名添加到查询目标集，并为其创建一个参数占位符名称， 添加占位符名称与指定值的映射，以便于后续进行参数注入
+- mayDo：私有方法，使用匿名 wrapper 构建实际的分段条件，用于构建连接条件（AND/OR）体的内容。可指定连接符，从而构建包含连接符的条件体。该方法构建的内容是完整的条件。
+
+### InfluxModifiersWrapper 修饰符 SQL 构建器
+
+构建 Influx 查询 SQL 中查询修饰符部分的工具类，结合 `InfluxQueryWrapper` 使用，实现在 SQL 语句尾添加查询修饰符。
+
+目前的查询修饰符支持 LIMIT/OFFSET，ORDER BY，暂不支持 GROUP BY（可添加，但查询 wrapper 暂时不支持聚合）。
+
+包含以下属性：
+
+- limit/offset：限制查询数量及偏移量
+- orderBy：按照指定字段排序，可指定多个
+- globalDesc：全局的排序规则，若指定排序字段时未传递规则参数，则使用该全局规则
+- groupBy：以指定字段分组，可指定多个。目前可添加，但查询 Wrapper 中暂不支持构建聚合查询，所以会报错
+- parent：当前修饰符构建器所属的父 wrapper（`InfluxQueryWrapper`）。
+
+包含以下方法：
+
+- limit/offset：设置查询数量/偏移量，limit 存在方法重载可同时指定两个参数
+- orderBy：按照指定的列，按照指定的排序规则构建排序
+- groupBy：按照指定的列构建分组
+- build：执行构建，调用父类构建方法，返回完整的结果
+- toSql：执行构建，仅构建当前修饰符构建器的部分
+- buildGroupBy/buildOrderBy/buildLimit：私有方法，构建分组/排序/限制数量 的修饰符
 
 ### InfluxObjMapper
+
+对象转换器，用于将结果集转换为指定的对象集。
+
+提供一系列转换方法，如下：
+
+- map：将一个对象数组转换为指定的类实例。(一个对象数组便是结果集中的一行)
+- mapAll：将一个对象数组流转为指定的类实例列表（一个对象数组流便是一个完整的结果集）
+
+- compressToMapList：将一个对象数组流压缩为一个映射表的集合，即结果集中的一行对应着一个映射表
+- mapToResult：将一个对象数组转换为一个 InfluxResult 对象，该对象仅包含一行记录
+- mapAllToResult：将一个对象数组流转换为一个 InfluxResult 对象，该对象的记录数即为流的元素数
+- handleType：静态方法，将一个值根据一个字段所指定的类型处理器进行转换，并返回转换后的值
+- getField：静态方法，递归查找指定类中的指定名称字段，用于反射注入
 
 ### InfluxQueryWrapper
 
@@ -193,25 +355,15 @@ InfluxDB 返回的查询结果集为 Object 数组流，每个数组对应着一
 
 执行构建方法会基于查询参数集合，构建查询 SQL 并返回。
 
-### PointBuilder
+### PointBuilder 端点构造器
 
+由于 InfluxDBClient 在插入数据时，使用的是 `Point 端点`封装类，而 InfluxClient（本项目）使用 `AbstractActionInfluxObj` 进一步封装了操作数据，所以需要此 端点构造器 将数据转换为端点。
 
+包含以下方法：
 
-## 处理器类
-
-### TypeHandler
-
-### InfluxTypeHandler
-
-### InstantTypeHandler
-
-### 
-
-## 工具类
-
-### TimeStampUtils
-
-
+- build：将一个 AbstractActionInfluxObj 封装为 Point
+- buildAll：将一个 AbstractActionInfluxObj 的集合封装为 Point 集合
+- valid：验证对象是否合法（是否为空、标签/字段是否为全空、标签/字段 是否有交叉）
 
 # 常见问题
 
