@@ -25,7 +25,8 @@ public class PointBuilder {
      * @throws IllegalArgumentException 如果对象的字段和标签中存在重复的键
      */
     public static <T extends AbstractActionInfluxObj> Point build(T obj) {
-        log.debug("【PointBuilder】构建对象: {}", obj);
+        log.debug("【PointBuilder】构建对象: className:{}\ntags:{}\nfields:{}",
+                obj.getClass().getSimpleName(), obj.getTagKeys(), obj.getFieldKeys());
         // 1. 验证对象
         if (!valid(obj)) {
             throw new InfluxObjValidException();
