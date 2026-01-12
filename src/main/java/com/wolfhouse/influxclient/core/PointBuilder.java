@@ -32,10 +32,10 @@ public class PointBuilder {
             throw new InfluxObjValidException();
         }
         // 2. 构建 Point 并返回
-        return Point.measurement(obj.measurement())
+        return Point.measurement(obj.getMeasurement())
                     .setFields(obj.getFieldMap())
                     .setTags(obj.getTagMap())
-                    .setTimestamp(obj.time());
+                    .setTimestamp(obj.getTime());
     }
 
     /**

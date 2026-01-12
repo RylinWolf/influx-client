@@ -6,7 +6,7 @@
 
     <groupId>com.wolfhouse</groupId>
     <artifactId>influxclient4j</artifactId>
-    <version>1.3.1-ALPHA</version>
+    <version>1.4-ALPHA</version>
 
     <developers>
         <developer>
@@ -27,7 +27,7 @@
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <influxdb.version>1.7.0</influxdb.version>
-        <lambook.version>1.18.30</lambook.version>
+        <lombok.version>1.18.30</lombok.version>
     </properties>
 
     <dependencies>

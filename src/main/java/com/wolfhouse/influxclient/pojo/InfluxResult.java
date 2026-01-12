@@ -16,12 +16,13 @@ import java.util.Map;
  */
 @SuppressWarnings({"UnusedReturnValue", "unused"})
 @ToString
+@Getter
 public class InfluxResult extends AbstractBaseInfluxObj {
     protected List<InfluxRow> results = new ArrayList<>();
 
     {
         // 应该依赖于数据的时间结果，因此这里的时间对象是无效的
-        super.time(null);
+        super.setTime(null);
     }
 
     public InfluxResult addRow(Map<String, Object> result) {

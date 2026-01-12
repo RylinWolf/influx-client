@@ -1,5 +1,6 @@
 package com.wolfhouse.influxclient.core;
 
+import com.wolfhouse.influxclient.anno.OtherColumns;
 import com.wolfhouse.influxclient.pojo.AbstractBaseInfluxObj;
 import com.wolfhouse.influxclient.pojo.InfluxResult;
 import com.wolfhouse.influxclient.typehandler.InfluxTypeHandler;
@@ -57,13 +58,17 @@ public class InfluxObjMapper {
         if (clazz.equals(InfluxResult.class)) {
             return (T) mapToResult(obj, targets);
         }
+        if (Map.class.isAssignableFrom(clazz)) {
+            return (T) compressToMap(obj, targets);
+        }
         try {
             // 创建目标类对象
             T t = clazz.getDeclaredConstructor().newInstance();
             // 获取查询参数，与对象数组一一对应
             targets = new LinkedHashSet<>(targets);
             assert targets.size() == obj.length : "查询参数数与结果集不一致！";
-
+            // 获取字段不匹配时的存储集合
+            Map<String, Object> otherColumns = getOtherColumns(t, clazz);
             // TODO 可以优化获取字段名的性能
             for (Object o : obj) {
                 // 当前值的字段名
@@ -76,14 +81,22 @@ public class InfluxObjMapper {
                     // 如果驼峰命名找不到，尝试使用原名（兼容本来就是驼峰或不需要转换的情况）
                     field = getField(clazz, name);
                 }
-
                 if (field == null) {
-                    // 无该字段，直接跳过
-                    log.warn("【InfluxObjectMapper】尝试注入字段失败，类 {} 不包含该字段: {} 或 {}", clazz, fieldName, name);
+                    if (otherColumns == null) {
+                        // 无该字段，直接跳过
+                        log.warn("【InfluxObjectMapper】尝试注入字段失败，类 {} 不包含该字段: {} 或 {}", clazz, fieldName, name);
+                        continue;
+                    }
+                    otherColumns.put(name, o);
                     continue;
                 }
                 // 这里字段一定存在
                 field.setAccessible(true);
+                Object defaultValue = field.get(t);
+                if (defaultValue != null) {
+                    log.debug("【InfluxObjMapper】字段 {} 已有初始值: {}，将不再注入", fieldName, defaultValue);
+                    continue;
+                }
                 // 处理自定义 TypeHandler
                 Object valueToSet = handleType(o, field);
                 field.set(t, valueToSet);
@@ -94,6 +107,28 @@ public class InfluxObjMapper {
                  NoSuchMethodException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T extends AbstractBaseInfluxObj> Map<String, Object> getOtherColumns(T t, Class<T> clazz) {
+        for (Field field : clazz.getDeclaredFields()) {
+            if (field.isAnnotationPresent(OtherColumns.class)) {
+                field.setAccessible(true);
+                try {
+                    Object o = field.get(t);
+                    if (o == null) {
+                        throw new NullPointerException("【InfluxObjMapper】注入 OtherColumns 失败，字段未初始化");
+                    }
+                    if (!Map.class.isAssignableFrom(o.getClass())) {
+                        throw new ClassCastException("【InfluxObjMapper】OtherColumns 仅能用于 Map 类");
+                    }
+                    return (Map<String, Object>) o;
+                } catch (IllegalAccessException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+        return null;
     }
 
     /**

@@ -28,30 +28,34 @@ import static com.wolfhouse.influxclient.InfluxClientConstant.TIMESTAMP_FIELD;
 @SuppressWarnings({"UnusedReturnValue", "unused"})
 public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseSqlBuilder {
     /** 表示当前构造器是否为匿名构造器（未通过泛型类型创建） */
-    private boolean                       isLambda      = false;
+    private boolean                       isLambda                    = false;
     /** 控制查询结果是否包含时间戳字段 */
-    private boolean                       withTime      = true;
+    private boolean                       withTime                    = true;
     /** 当前查询的目标表（measurement）名称 */
     private String                        measurement;
     /** 当前查询关联的映射对象引用，提供表结构信息 */
     private AbstractActionInfluxObj       reference;
+    /** 表名标识符引用符 */
+    private String                        measurementQuotingDelimiter = "`";
+    /** 列名标识符引用符 */
+    private String                        columnQuotingDelimiter      = "`";
     /** 当前查询涉及的标签约束集合 */
     private InfluxTags                    tags;
     /** 当前查询涉及的字段约束集合 */
     private InfluxFields                  fields;
     /** 当前查询的目标列以及别名集合 */
-    private LinkedHashMap<String, String> aliasMap      = new LinkedHashMap<>();
+    private LinkedHashMap<String, String> aliasMap                    = new LinkedHashMap<>();
     /** 当前查询的目标列集合，若有别名则使用别名代替（仅在构建后有效） */
     private LinkedHashSet<String>         mixedTargetsWithAlias;
     /** 当前查询的条件构造器，用于构建WHERE子句 */
     private InfluxConditionWrapper<T>     conditionWrapper;
     /** 标记当前查询是否已经构建完成 */
-    private boolean                       isBuild       = false;
+    private boolean                       isBuild                     = false;
     /** 标记当前查询是否包含WHERE条件（仅在构建后有效） */
-    private boolean                       isConditioned = false;
+    private boolean                       isConditioned               = false;
     /** 当前查询的查询参数构造器 */
     private InfluxModifiersWrapper<T>     modifiersWrapper;
-    private boolean                       isModified    = false;
+    private boolean                       isModified                  = false;
 
     // region 构造方法
 
@@ -180,21 +184,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
      * @throws NoSuchTagOrFieldException 如果传入的字段中存在不在标签集合或字段集合中的字段名，则抛出异常。
      */
     public InfluxQueryWrapper<T> select(String... fields) {
-        for (String field : fields) {
-            // 处理别名
-            String[] s     = field.split("\\s", 2);
-            String   alias = null;
-            if (s.length > 1) {
-                alias = s[1].trim();
-                // 使用 as 作为别名分隔符
-                if (alias.startsWith("as")) {
-                    alias = alias.substring(2).trim();
-                }
-            }
-            // 添加到别名映射
-            this.aliasMap.put(s[0], alias);
-        }
-        return this;
+        return select(Arrays.asList(fields));
     }
 
     /**
@@ -246,8 +236,26 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
      *
      * @return 当前 InfluxQueryWrapper 实例，用于支持链式调用
      */
-    public InfluxQueryWrapper<T> selectAll() {
+    public InfluxQueryWrapper<T> selectSelfAll() {
         return selectSelfTag().selectSelfField();
+    }
+
+    public InfluxQueryWrapper<T> select(SequencedCollection<String> targets) {
+        for (String field : targets) {
+            // 处理别名
+            String[] s     = field.split("\\s", 2);
+            String   alias = null;
+            if (s.length > 1) {
+                alias = s[1].trim();
+                // 使用 as 作为别名分隔符
+                if (alias.startsWith("as")) {
+                    alias = alias.substring(2).trim();
+                }
+            }
+            // 添加到别名映射
+            this.aliasMap.put(s[0], alias);
+        }
+        return this;
     }
 
     /**
@@ -295,9 +303,9 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
         while (!targets.isEmpty()) {
             String target = targets.removeFirst();
             String alias  = aliasMap.get(target);
-            builder.append("`")
+            builder.append(columnQuotingDelimiter)
                    .append(target)
-                   .append("`");
+                   .append(columnQuotingDelimiter);
             if (alias != null) {
                 // 添加入目标字段集合
                 mixedTargetsWithAlias.add(alias);
@@ -323,7 +331,10 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
     @Override
     protected void buildFromTable(StringBuilder builder) {
         // 指定目标表
-        builder.append(" FROM `").append(measurement).append("`");
+        builder.append(" FROM ")
+               .append(measurementQuotingDelimiter)
+               .append(measurement)
+               .append(measurementQuotingDelimiter);
     }
 
     @Override
@@ -377,7 +388,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
         // 目标表名若为空，则从引用对象中获取
         if (this.measurement == null) {
             String m;
-            if (reference == null || (m = reference.measurement()) == null) {
+            if (reference == null || (m = reference.getMeasurement()) == null) {
                 throw new IllegalArgumentException("无目标表！");
             }
             return measurement(m).aliasMap.isEmpty();
@@ -461,7 +472,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
         log.debug("【InfluxQueryWrapper】加载引用对象...");
         assert this.reference != null : "引用对象为空！";
         String m = this.measurement;
-        this.measurement = m == null ? this.reference.measurement() : m;
+        this.measurement = m == null ? this.reference.getMeasurement() : m;
         this.tags        = this.reference.getTags();
         this.fields      = this.reference.getFields();
         log.debug("【InfluxQueryWrapper】引用对象加载完毕");

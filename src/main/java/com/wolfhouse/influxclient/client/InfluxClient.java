@@ -1,6 +1,8 @@
 package com.wolfhouse.influxclient.client;
 
 import com.influxdb.v3.client.InfluxDBClient;
+import com.wolfhouse.influxclient.comparator.NaturalComparator;
+import com.wolfhouse.influxclient.constant.InfluxBuiltInTableMeta;
 import com.wolfhouse.influxclient.core.InfluxConditionWrapper;
 import com.wolfhouse.influxclient.core.InfluxObjMapper;
 import com.wolfhouse.influxclient.core.InfluxQueryWrapper;
@@ -16,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nullable;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -23,6 +26,7 @@ import java.util.stream.Stream;
  */
 @Slf4j
 @RequiredArgsConstructor
+@SuppressWarnings("all")
 public class InfluxClient {
     public final InfluxDBClient client;
 
@@ -48,16 +52,17 @@ public class InfluxClient {
         // 获取条件构造器
         InfluxConditionWrapper<T> conditions = wrapper.getConditionWrapper();
         if (conditions == null) {
-            return count(wrapper.getMeasurement(), null, null);
+            return count(wrapper.getMeasurement(), wrapper.getMeasurementQuotingDelimiter(), null, null);
         }
-        return count(wrapper.getMeasurement(), conditions.sql(), conditions.getParameters());
+        return count(wrapper.getMeasurement(), wrapper.getMeasurementQuotingDelimiter(), conditions.sql(), conditions.getParameters());
     }
 
-    public Long count(String measurement, String conditions, Map<String, Object> params) {
+    public Long count(String measurement, String measurementQuotingDelimiter, String conditions, Map<String, Object> params) {
         // 基础计数语句
-        StringBuilder countBuilder = new StringBuilder("select count(0) count from `")
+        StringBuilder countBuilder = new StringBuilder("select count(0) count from ")
+                .append(measurementQuotingDelimiter)
                 .append(measurement)
-                .append("`");
+                .append(measurementQuotingDelimiter);
         // 构建条件
         if (conditions != null && !conditions.isEmpty()) {
             countBuilder.append(" where ( ")
@@ -116,6 +121,97 @@ public class InfluxClient {
         }
         InfluxConditionWrapper<?> condition = wrapper.getConditionWrapper();
         return doQuery(wrapper.build(), condition == null ? null : condition.getParameters());
+    }
+
+    /**
+     * 对于指定查询条件包装器，添加查询全部字段操作，并返回修改后的包装器
+     *
+     * @param wrapper 查询条件包装器
+     * @return 修改后的包装器
+     */
+    public <T extends AbstractActionInfluxObj> InfluxQueryWrapper<T> addQueryAll(InfluxQueryWrapper<T> wrapper, Comparator<String> comparator) {
+        List<String> columns = new ArrayList<>(getAllColumns(wrapper.getMeasurement()));
+        if (columns == null || columns.isEmpty()) {
+            return wrapper;
+        }
+        Collections.sort(columns, comparator);
+        return wrapper.select(columns);
+    }
+
+    /**
+     * 对于指定查询条件包装器，添加查询全部字段操作，并返回修改后的包装器
+     * 使用自然排序
+     *
+     * @param wrapper 查询条件包装器
+     * @return 修改后的包装器
+     */
+    public <T extends AbstractActionInfluxObj> InfluxQueryWrapper<T> addQueryAll(InfluxQueryWrapper<T> wrapper) {
+        return addQueryAll(wrapper, Comparator.naturalOrder());
+    }
+
+
+    /**
+     * 查询表中的全部字段，并使用给定的查询条件包装器执行查询操作。
+     * 返回查询结果列表。
+     * 结果会按照列名自然排序
+     *
+     * @param influxQueryWrapper 条件构建器
+     * @return 包含表中全部字段的结果列表
+     */
+    public List<Map<String, Object>> queryAll(InfluxQueryWrapper<?> influxQueryWrapper) {
+        return queryMap(addQueryAll(influxQueryWrapper));
+    }
+
+    /**
+     * 对于指定查询结果列表，使用指定排序器进行排序，返回排序后的结果
+     *
+     * @param maps       查询结果列表
+     * @param comparator 排序器
+     * @return 排序后的结果列表
+     */
+    public List<SequencedMap<String, Object>> sortResults(List<Map<String, Object>> maps, Comparator<String> comparator) {
+        return maps.stream().map(m -> {
+            SequencedMap<String, Object> map = new LinkedHashMap<>(m.size());
+            LinkedHashSet<String> keySet = new LinkedHashSet<>(m.keySet())
+                    .stream()
+                    .sorted(comparator)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            for (String s : keySet) {
+                map.putLast(s, m.get(s));
+            }
+            return map;
+        }).toList();
+    }
+
+    /**
+     * 对于指定查询结果列表，使用本项目自定义的自然排序器 {@link NaturalComparator} 进行排序，返回排序后的结果
+     *
+     * @param maps 查询结果列表
+     * @return 排序后的结果列表
+     */
+    public List<SequencedMap<String, Object>> sortResults(List<Map<String, Object>> maps) {
+        return sortResults(maps, new NaturalComparator());
+    }
+
+    /**
+     * 对于指定测量表，获取其全部列名
+     *
+     * @param measurement 测量表名称
+     * @return 列名列表
+     */
+    private List<String> getAllColumns(String measurement) {
+        List<Map<String, Object>> maps = queryMap(InfluxQueryWrapper.create(InfluxBuiltInTableMeta.COLUMN_META_MEASUREMENT)
+                                                                    .select(InfluxBuiltInTableMeta.COLUMN_META_COLUMN_NAME)
+                                                                    .setMeasurementQuotingDelimiter("")
+                                                                    .withTime(false)
+                                                                    .where()
+                                                                    .eq(InfluxBuiltInTableMeta.COLUMN_META_TABLE_NAME_FIELD, measurement)
+                                                                    .parent());
+        if (maps.isEmpty()) {
+            log.warn("【InfluxClient】无法获取表 {} 的列信息，是否为空？", measurement);
+            return List.of();
+        }
+        return maps.stream().map(m -> String.valueOf(m.get(InfluxBuiltInTableMeta.COLUMN_META_COLUMN_NAME))).toList();
     }
 
     /**

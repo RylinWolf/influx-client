@@ -14,7 +14,7 @@ import java.time.Instant;
  */
 @Getter
 @ToString
-@Accessors(chain = true, fluent = true)
+@Accessors(chain = true)
 @SuppressWarnings({"UnusedReturnValue", "unused"})
 public abstract class AbstractBaseInfluxObj {
     /** InfluxDB的度量名称，用于指定数据写入的表 */
