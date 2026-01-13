@@ -6,7 +6,7 @@
 
     <groupId>com.wolfhouse</groupId>
     <artifactId>influxclient4j</artifactId>
-    <version>1.4-ALPHA</version>
+    <version>1.0.4</version>
 
     <developers>
         <developer>

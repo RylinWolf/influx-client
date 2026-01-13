@@ -1,6 +1,7 @@
 package com.wolfhouse.influxclient.core;
 
 import com.wolfhouse.influxclient.anno.OtherColumns;
+import com.wolfhouse.influxclient.anno.OverrideColumn;
 import com.wolfhouse.influxclient.pojo.AbstractBaseInfluxObj;
 import com.wolfhouse.influxclient.pojo.InfluxResult;
 import com.wolfhouse.influxclient.typehandler.InfluxTypeHandler;
@@ -54,12 +55,17 @@ public class InfluxObjMapper {
     public static <T extends AbstractBaseInfluxObj> T map(Object[] obj,
                                                           Class<T> clazz,
                                                           SequencedCollection<String> targets) {
+        // 是否允许覆盖有默认值的列
+        boolean overrideColumn = false;
         // 对于 InfluxResult 特殊处理
         if (clazz.equals(InfluxResult.class)) {
             return (T) mapToResult(obj, targets);
         }
         if (Map.class.isAssignableFrom(clazz)) {
             return (T) compressToMap(obj, targets);
+        }
+        if (clazz.isAnnotationPresent(OverrideColumn.class)) {
+            overrideColumn = true;
         }
         try {
             // 创建目标类对象
@@ -94,8 +100,11 @@ public class InfluxObjMapper {
                 field.setAccessible(true);
                 Object defaultValue = field.get(t);
                 if (defaultValue != null) {
-                    log.debug("【InfluxObjMapper】字段 {} 已有初始值: {}，将不再注入", fieldName, defaultValue);
-                    continue;
+                    if (!overrideColumn && !field.isAnnotationPresent(OverrideColumn.class)) {
+                        log.debug("【InfluxObjMapper】字段 {} 已有初始值: {}，将不再注入", fieldName, defaultValue);
+                        continue;
+                    }
+                    log.debug("【InfluxObjMapper】字段 {} 已有初始值: {}，允许覆盖，将进行覆盖", fieldName, defaultValue);
                 }
                 // 处理自定义 TypeHandler
                 Object valueToSet = handleType(o, field);

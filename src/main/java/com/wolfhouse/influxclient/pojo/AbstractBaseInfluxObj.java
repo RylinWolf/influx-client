@@ -1,5 +1,6 @@
 package com.wolfhouse.influxclient.pojo;
 
+import com.wolfhouse.influxclient.anno.OverrideColumn;
 import com.wolfhouse.influxclient.typehandler.InfluxTypeHandler;
 import com.wolfhouse.influxclient.typehandler.InstantTypeHandler;
 import lombok.Getter;
@@ -23,6 +24,7 @@ public abstract class AbstractBaseInfluxObj {
     /** 数据点的时间戳 */
     @Setter
     @InfluxTypeHandler(InstantTypeHandler.class)
+    @OverrideColumn
     protected Instant time;
 
     protected AbstractBaseInfluxObj() {
