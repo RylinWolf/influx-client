@@ -1,9 +1,12 @@
 package com.wolfhouse.influxclient.core;
 
+import com.wolfhouse.influxclient.constant.InfluxBuiltInTableMeta;
 import com.wolfhouse.influxclient.constant.SqlSegmentType;
+import com.wolfhouse.influxclient.exception.InfluxClientException;
 import com.wolfhouse.influxclient.pojo.AbstractActionInfluxObj;
 import lombok.Getter;
 
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -236,6 +239,34 @@ public class InfluxConditionWrapper<T extends AbstractActionInfluxObj> {
 
     public InfluxConditionWrapper<T> ge(String column, Object value) {
         return ge(column, value, true);
+    }
+
+    /**
+     * 添加时间范围条件。
+     *
+     * @param start        起始时间
+     * @param includeStart 是否包含起始时间
+     * @param end          结束时间
+     * @param includeEnd   是否包含结束时间
+     * @return 当前 ConditionWrapper 实例
+     */
+    public InfluxConditionWrapper<T> duration(Instant start, boolean includeStart, Instant end, boolean includeEnd) {
+        if (start.isAfter(end)) {
+            throw new InfluxClientException("[InfluxClient] 开始时间不得在结束时间之后！start:%s, stop:%s".formatted(start, end));
+        }
+        return appendConditionAndMask(InfluxBuiltInTableMeta.TIME_TAG, start.toString(), includeStart ? SqlSegmentType.GE : SqlSegmentType.GT)
+                .appendConditionAndMask(InfluxBuiltInTableMeta.TIME_TAG, end.toString(), includeEnd ? SqlSegmentType.LE : SqlSegmentType.LT);
+    }
+
+    /**
+     * 添加时间范围条件，包含起始和结束时间。
+     *
+     * @param start 起始时间
+     * @param end   结束时间
+     * @return 当前 ConditionWrapper 实例
+     */
+    public InfluxConditionWrapper<T> duration(Instant start, Instant end) {
+        return duration(start, true, end, true);
     }
 
     // endregion

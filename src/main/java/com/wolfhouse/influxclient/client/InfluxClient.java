@@ -89,7 +89,6 @@ public class InfluxClient {
 
     /** 处理缓存区，将缓存区内容保存入 InfluxDB */
     private synchronized void handleCache() {
-        log.debug("【InfluxClient】处理缓存区");
         // 未启用缓存或缓存列表为空
         if (!cacheEnabled || cache.isEmpty()) {
             log.debug("【InfluxClient】缓存区未启用或为空，跳过处理");
@@ -198,7 +197,7 @@ public class InfluxClient {
             if (size + cacheCount > cacheBound) {
                 handleCache();
             }
-            // 3. 数量与缓存区已有数量之和未超过缓存区上限（不一定），添加至缓存区
+            // 3. 数量与缓存区已有数量之和未超过缓存区上限，添加至缓存区
             cache.addAll(objs);
             // 4. 更新缓存区数量
             cacheCount += size;

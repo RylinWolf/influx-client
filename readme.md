@@ -6,7 +6,8 @@
 
 # 项目介绍
 
-`Influx-Client` 是一个基于 InfluxDB Java 客户端（V3）开发的轻量级二次封装框架。它旨在简化 Java 应用与 InfluxDB 时序数据库之间的交互，通过提供类似 MyBatis-Plus 的流式 API 和对象映射（ORM）机制，显著降低了开发者的上手难度和代码冗余。
+`Influx-Client` 是一个基于 InfluxDB Java 客户端（V3）开发的轻量级二次封装框架。它旨在简化 Java 应用与 InfluxDB
+时序数据库之间的交互，通过提供类似 MyBatis-Plus 的流式 API 和对象映射（ORM）机制，显著降低了开发者的上手难度和代码冗余。
 
 ### 核心特性
 
@@ -19,8 +20,8 @@
 
 ### 适用场景
 
-适用于需要频繁进行 InfluxDB 数据写入、按条件检索以及分页展示的 Java/Spring Boot 项目，特别是对于不希望编写原始 SQL/Flux 语句并追求开发效率的项目。
-
+适用于需要频繁进行 InfluxDB 数据写入、按条件检索以及分页展示的 Java/Spring Boot 项目，特别是对于不希望编写原始 SQL/Flux
+语句并追求开发效率的项目。
 
 # 上手使用
 
@@ -38,11 +39,12 @@ influx:
   database: my_bucket        # 替换为你的 Influx 数据库名
 ```
 
-2. 在环境变量中配置 `INFLUX_TOKEN` 
+2. 在环境变量中配置 `INFLUX_TOKEN`
 
 3. 之后可以直接在代码中注入 `InfluxClient`：
 
 ```java
+
 @Autowired
 private InfluxClient influxClient;
 ```
@@ -51,18 +53,23 @@ private InfluxClient influxClient;
 
 虽然本项目提供了 Spring Boot Starter，但在非 Spring Boot 环境中同样可以轻松使用。
 
-- **类加载安全性**：虽然 `InfluxClientAutoConfiguration` 类中使用了 Spring 的注解和类，但由于 `InfluxClient` 核心逻辑与之处于不同的包结构下（`client` 包 vs `autoconfigure` 包），在非 Spring 环境中，只要你不主动 `import` 自动配置类，JVM 就不会尝试加载它。因此，即便依赖库中包含这些 `.class` 文件，也不会在运行时抛出 `NoClassDefFoundError`。
-- **依赖隔离**： `pom.xml` 中  Spring 相关依赖为 `<optional>true</optional>`。这意味着如果你是在一个非 Spring 项目中引入本框架，Maven 不会下载 Spring 相关的 jar 包，从而保持了项目的轻量性。
+- **类加载安全性**：虽然 `InfluxClientAutoConfiguration` 类中使用了 Spring 的注解和类，但由于 `InfluxClient`
+  核心逻辑与之处于不同的包结构下（`client` 包 vs `autoconfigure` 包），在非 Spring 环境中，只要你不主动 `import` 自动配置类，JVM
+  就不会尝试加载它。因此，即便依赖库中包含这些 `.class` 文件，也不会在运行时抛出 `NoClassDefFoundError`。
+- **依赖隔离**： `pom.xml` 中 Spring 相关依赖为 `<optional>true</optional>`。这意味着如果你是在一个非 Spring
+  项目中引入本框架，Maven 不会下载 Spring 相关的 jar 包，从而保持了项目的轻量性。
 
 为了确保在脱离 Spring Boot 的环境下正常运行，请遵循以下改造步骤：
 
 #### 1. 依赖配置
 
-如果你不使用 Spring Boot，请确保你的 `pom.xml` 中排除了 Spring 相关的自动配置依赖，或者直接引入核心依赖所需的库。本项目已将 Spring Boot 相关依赖标记为 `optional`，因此在非 Spring 环境下，它们不会被强制引入。
+如果你不使用 Spring Boot，请确保你的 `pom.xml` 中排除了 Spring 相关的自动配置依赖，或者直接引入核心依赖所需的库。本项目已将
+Spring Boot 相关依赖标记为 `optional`，因此在非 Spring 环境下，它们不会被强制引入。
 
 你至少需要以下依赖：
 
 ```xml
+
 <dependencies>
     <!-- InfluxDB V3 SDK -->
     <dependency>
@@ -95,9 +102,9 @@ InfluxDBClient influxDBClient = InfluxDBClient.getInstance(
         "my_bucket"                      // 数据库名
 );
 
-// 2. 实例化 InfluxClient (本项目提供)
+        // 2. 实例化 InfluxClient (本项目提供)
 // 注意：不要使用 InfluxClientAutoConfiguration，它是为 Spring Boot 设计的
-InfluxClient influxClient = new InfluxClient(influxDBClient);
+        InfluxClient influxClient = new InfluxClient(influxDBClient);
 
 // 3. 之后即可正常使用 influxClient 进行 insert/query 操作
 
@@ -118,6 +125,7 @@ InfluxClient influxClient = new InfluxClient(influxDBClient);
 ### 1. 定义映射类
 
 ```java
+
 @Data
 public class SensorData extends AbstractActionInfluxObj {
     public SensorData() {
@@ -133,13 +141,25 @@ public class SensorData extends AbstractActionInfluxObj {
 
 ```java
 SensorData data = new SensorData();
-data.addTag("sensor_id", "SN-001")
-    .addTag("type", "DHT11")
-    .addField("temperature", 25.5)
-    .addField("humidity", 60.2)
-    .refreshTimestamp(); // 设置为当前时间
+data.
 
-influxClient.insert(data);
+addTag("sensor_id","SN-001")
+    .
+
+addTag("type","DHT11")
+    .
+
+addField("temperature",25.5)
+    .
+
+addField("humidity",60.2)
+    .
+
+refreshTimestamp(); // 设置为当前时间
+
+influxClient.
+
+insert(data);
 ```
 
 ## 查询数据
@@ -152,11 +172,11 @@ influxClient.insert(data);
 
 ```java
 InfluxQueryWrapper<SensorData> wrapper = InfluxQueryWrapper
-  .from(new SensorData())
-  .select("temperature","humidity") // 选择指定列
-  // .selectAll()                  // 选择所有标签和字段
-  // .selectSelfTag()                // 仅选择对象定义的标签
-  .withTime(true);                   // 是否包含时间戳，默认为 true
+        .from(new SensorData())
+        .select("temperature", "humidity") // 选择指定列
+        // .selectAll()                  // 选择所有标签和字段
+        // .selectSelfTag()                // 仅选择对象定义的标签
+        .withTime(true);                   // 是否包含时间戳，默认为 true
 ```
 
 ### 构建查询条件
@@ -165,22 +185,44 @@ InfluxQueryWrapper<SensorData> wrapper = InfluxQueryWrapper
 
 ```java
 wrapper.where()
-    .eq("sensor_id","SN-001")
-    .gt("temperature",20)
-    .lt("temperature",30)
-    .or(w ->w.eq("type","DHT22"));
+    .
+
+eq("sensor_id","SN-001")
+    .
+
+gt("temperature",20)
+    .
+
+lt("temperature",30)
+    .
+
+or(w ->w.
+
+eq("type","DHT22"));
 ```
 
 支持嵌套条件：
 
 ```java
 wrapper.where()
-    .eq("sensor_id","SN-001")
-    .and(w ->w.gt("temperature",20).and(w2 -> w2.lt("temperature",30)))
-    .or(w ->w.eq("type","DHT22"));
+    .
+
+eq("sensor_id","SN-001")
+    .
+
+and(w ->w.
+
+gt("temperature",20).
+
+and(w2 ->w2.
+
+lt("temperature",30)))
+        .
+
+or(w ->w.
+
+eq("type","DHT22"));
 ```
-
-
 
 ### 构建查询修饰符
 
@@ -188,8 +230,12 @@ wrapper.where()
 
 ```java
 wrapper.modify()
-    .orderBy(false,"time") // 按照时间降序排列
-    .limit(10,0);          // 限制 10 条，偏移 0
+    .
+
+orderBy(false,"time") // 按照时间降序排列
+    .
+
+limit(10,0);          // 限制 10 条，偏移 0
 ```
 
 ### 执行查询并映射结果
@@ -490,17 +536,19 @@ SQL 构造器模板，规范 SQL 构建的方法步骤。
 
 ## API response error: write buffer error: parsing for line protocol failed
 
-- 先检查构建的 line protocol 格式是否正确
+1. **先检查构建的 line protocol 格式是否正确**
 
-该问题的原因之一（本项目遇到的）是，在首次插入数据时，InfluxDB 会自动进行类型转换。如对于以下 line protocol，`groud_current` 在
-Java 程序中设置为 0，则 InfluxDB 客户端对其转换后的类型是整型。
+2. 该问题的原因之一是，在首次插入数据时，InfluxDB 会自动进行类型转换。如对于以下 line protocol，
+   `groud_current` 在 Java 程序中设置为 0，则 InfluxDB 客户端对其转换后的类型是**整型**。
+    ```
+    t_detect_record,level-1=1831217700266381314,nodeId=1831217700266381314,sensorTypeId=6 dataStatus=1i,ground_current=0i,plug_current=0i 1765334351201945000
+    ```
 
-```
-t_detect_record,level-1=1831217700266381314,nodeId=1831217700266381314,sensorTypeId=6 dataStatus=1i,ground_current=0i,plug_current=0i 1765334351201945000
-```
+   但是对于数值型数据，InfluxDB 无法进行类型转换，也就是以下 line protocol 会执行失败。
 
-但是对于数值型数据，InfluxDB 无法进行类型转换，也就是以下 line protocol 会执行失败。
-
-```
-t_detect_record,level-1=1831217700266381314,nodeId=1831217700266381314,sensorTypeId=6 dataStatus=1i,ground_current=0.01,plug_current=0.1 1765334299898996171
-```
+    ```
+    t_detect_record,level-1=1831217700266381314,nodeId=1831217700266381314,sensorTypeId=6 dataStatus=1i,ground_current=0.01,plug_current=0.1 1765334299898996171
+    ```
+3. 除以上原因，还有可能是 InfluxDB 本身的限制，如同一张表(measurement)中，列数不能超过 500。
+   可以通过调试工具，查看 InfluxDBClient 中生成 `line protocol` 的方法并获取其生成的内容，通过 `curl` 命令行工具，将其发送到
+   InfluxDB，观察返回的错误信息。
