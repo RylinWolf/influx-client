@@ -236,7 +236,7 @@ public class InfluxClientDemo {
     public static InfluxQueryWrapper<SampleActionInfluxObj> testPagination() {
         SampleActionInfluxObj                     obj     = new SampleActionInfluxObj();
         InfluxQueryWrapper<SampleActionInfluxObj> wrapper = InfluxQueryWrapper.from(obj);
-        wrapper.selectAll()
+        wrapper.selectSelfAll()
                .where()
                .eq("sensor_type", "气体温度传感器")
                .parent()

@@ -40,7 +40,7 @@ public class InfluxClientAutoConfiguration {
             log.info("[InfluxClientStarter] InfluxDB服务器版本: {}", client.getServerVersion());
             return client;
         } catch (Exception e) {
-            log.error("[InfluxClientStarter] InfluxDB客户端初始化失败: {}", e.getMessage(), e);
+            log.error("[InfluxClientStarter] InfluxDB客户端初始化失败: {}, properties: {}", e.getMessage(), properties, e);
             return null;
         }
     }

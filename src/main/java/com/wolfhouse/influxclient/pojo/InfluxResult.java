@@ -43,6 +43,10 @@ public class InfluxResult extends AbstractBaseInfluxObj {
         return this.results;
     }
 
+    public int size() {
+        return results.size();
+    }
+
 
     public static class InfluxRow {
         @Getter

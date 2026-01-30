@@ -10,6 +10,7 @@ import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 
+import javax.annotation.Nonnull;
 import java.util.*;
 
 import static com.wolfhouse.influxclient.InfluxClientConstant.TIMESTAMP_FIELD;
@@ -66,7 +67,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
      * @param reference 被包装的引用对象，用于提供查询或构建SQL的相关信息。
      *                  该对象必须是AbstractInfluxObj的子类实例，包含表名、标签和字段定义。
      */
-    private InfluxQueryWrapper(T reference) {
+    private InfluxQueryWrapper(@Nonnull T reference) {
         this.reference = reference;
         initReference();
     }
@@ -78,7 +79,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
      * @param measurement 测量名称，用于指定目标数据表。
      *                    该参数不能为null或空字符串。
      */
-    private InfluxQueryWrapper(String measurement) {
+    private InfluxQueryWrapper(@Nonnull String measurement) {
         measurement(measurement);
         initReference();
     }
@@ -100,7 +101,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
      *            通过调用该对象的 {@code getMeasurement()} 方法获得测量名称。
      * @return 初始化好的 {@link InfluxQueryWrapper} 实例，其中包含传入对象的测量名称。
      */
-    public static <T extends AbstractActionInfluxObj> InfluxQueryWrapper<T> from(T obj) {
+    public static <T extends AbstractActionInfluxObj> InfluxQueryWrapper<T> from(@Nonnull T obj) {
         return new InfluxQueryWrapper<>(obj);
     }
 
@@ -112,7 +113,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
      * @param obj 提供初始化数据的对象，该对象包含测量名称、标记和字段信息。不能为 {@code null}，否则会引发空指针异常。
      * @return 一个基于传入对象初始化的 {@code InfluxQueryWrapper} 实例。
      */
-    public static <T extends AbstractActionInfluxObj> InfluxQueryWrapper<T> fromBuild(T obj) {
+    public static <T extends AbstractActionInfluxObj> InfluxQueryWrapper<T> fromBuild(@Nonnull T obj) {
         InfluxQueryWrapper<T> wrapper = new InfluxQueryWrapper<>(obj);
         wrapper.selectSelfTag();
         wrapper.selectSelfField();
@@ -129,7 +130,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
      *            该参数不能为空，否则会引发空指针异常。
      * @return 生成的SQL查询语句，基于传入对象的测量名称、标签和字段构建。
      */
-    public static <T extends AbstractActionInfluxObj> String fromBuildSql(T obj) {
+    public static <T extends AbstractActionInfluxObj> String fromBuildSql(@Nonnull T obj) {
         return fromBuild(obj).build();
     }
 
@@ -141,7 +142,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
      * @return 一个新的 {@link InfluxQueryWrapper} 实例，测量名称和引用对象均为空。
      */
     public static InfluxQueryWrapper<?> create() {
-        return create(null);
+        return create("");
     }
 
     /**
@@ -152,7 +153,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
      * @param measurement 测量名称，用于指定数据查询的目标表。
      * @return 返回一个初始化了测量名称的 InfluxQueryWrapper 实例。
      */
-    public static InfluxQueryWrapper<?> create(String measurement) {
+    public static InfluxQueryWrapper<?> create(@Nonnull String measurement) {
         InfluxQueryWrapper<?> wrapper = new InfluxQueryWrapper<>(measurement);
         wrapper.isLambda = true;
         return wrapper;
@@ -161,8 +162,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
 
     // region 设置方法
 
-    public InfluxQueryWrapper<T> measurement(String measurement) {
-        assert measurement != null && !measurement.isBlank() : "表名 (measurement) 不得为空！";
+    public InfluxQueryWrapper<T> measurement(@Nonnull String measurement) {
         this.measurement = measurement;
         // 设置表名后，若初始化对象不存在，则初始化引用对象
         if (reference == null) {

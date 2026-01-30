@@ -12,6 +12,9 @@ import java.util.*;
  */
 @Slf4j
 public class PointBuilder {
+    private PointBuilder() {
+    }
+
     /**
      * 构建一个与指定InfluxDB数据对象相关联的Point实例。
      * 首先验证传入对象是否合法，如果验证失败则抛出异常。
@@ -25,8 +28,6 @@ public class PointBuilder {
      * @throws IllegalArgumentException 如果对象的字段和标签中存在重复的键
      */
     public static <T extends AbstractActionInfluxObj> Point build(T obj) {
-        log.debug("【PointBuilder】构建对象: className:{}\ntags:{}\nfields:{}",
-                obj.getClass().getSimpleName(), obj.getTagKeys(), obj.getFieldKeys());
         // 1. 验证对象
         if (!valid(obj)) {
             throw new InfluxObjValidException();
