@@ -443,8 +443,8 @@ public class InfluxClient {
      * @param <E>      数据对象的类型，必须继承自 AbstractBaseInfluxObj。
      * @param wrapper  查询条件包装器，用于构建查询的条件和参数。
      * @param clazz    数据对象的目标类型，用于映射查询结果。
-     * @param pageNum  当前页码，从1开始。
-     * @param pageSize 每页显示的数据条数。
+     * @param pageNum  当前页码，设为 0 则不限制查询结果数
+     * @param pageSize 每页显示的数据条数，设为 0 则不限制查询结果数
      * @return 包含查询结果的分页对象，包含总记录数、页码、每页大小以及当前页的数据。
      */
     public <E extends AbstractBaseInfluxObj, T extends AbstractActionInfluxObj> InfluxPage<E> pagination(@Nonnull InfluxQueryWrapper<T> wrapper,
@@ -452,7 +452,7 @@ public class InfluxClient {
                                                                                                          long pageNum,
                                                                                                          long pageSize) {
         // 验证分页参数
-        assert pageNum > 0 && pageSize > 0 : "分页参数配置有误，必须大于 0";
+        assert pageNum > 0 && pageSize > 0 : "分页参数配置有误，必须大于等于 0";
         // 构建分页结果
         InfluxPage<E> page = InfluxPage.<E>builder()
                                        .total(count(wrapper))
@@ -463,11 +463,20 @@ public class InfluxClient {
         if (page.total() < 1) {
             return page;
         }
-        // 添加分页参数
-        wrapper.modify()
-               .limit(pageSize, (pageNum - 1) * pageSize);
+        // 添加分页参数: 仅当分页参数全不为 0 时
+        boolean doPage = pageNum != 0 && pageSize != 0;
+        if (doPage) {
+            wrapper.modify()
+                   .limit(pageSize, (pageNum - 1) * pageSize);
+        }
         // 执行查询，设置结果集
-        return page.records(queryMap(wrapper, clazz).stream().toList());
+        page.records(queryMap(wrapper, clazz).stream().toList());
+        // 当没有进行分页时，更新 page 的分页参数信息
+        if (!doPage) {
+            page.pageNum(1);
+            page.pageSize(page.records().size());
+        }
+        return page;
     }
 
     /**
