@@ -12,6 +12,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
@@ -74,7 +75,7 @@ public class InfluxObjMapper {
             targets = new LinkedHashSet<>(targets);
             assert targets.size() == obj.length : "查询参数数与结果集不一致！";
             // 获取字段不匹配时的存储集合
-            Map<String, Object> otherColumns = getOtherColumns(t, clazz);
+            OtherColumnsHolder otherColumnsHolder = getOtherColumns(t, clazz);
             // TODO 可以优化获取字段名的性能
             for (Object o : obj) {
                 // 当前值的字段名
@@ -88,12 +89,26 @@ public class InfluxObjMapper {
                     field = getField(clazz, name);
                 }
                 if (field == null) {
-                    if (otherColumns == null) {
+                    if (otherColumnsHolder == null) {
                         // 无该字段，直接跳过
                         log.warn("【InfluxObjectMapper】尝试注入字段失败，类 {} 不包含该字段: {} 或 {}", clazz, fieldName, name);
                         continue;
                     }
-                    otherColumns.put(name, o);
+                    // 排除匹配正则的列
+                    List<Pattern> excludePatterns = otherColumnsHolder.patterns;
+                    if (!excludePatterns.isEmpty()) {
+                        boolean exclude = false;
+                        for (Pattern pattern : excludePatterns) {
+                            if (pattern.matcher(name).matches()) {
+                                exclude = true;
+                                break;
+                            }
+                        }
+                        if (exclude) {
+                            continue;
+                        }
+                    }
+                    otherColumnsHolder.otherColumns.put(name, o);
                     continue;
                 }
                 // 这里字段一定存在
@@ -119,10 +134,11 @@ public class InfluxObjMapper {
     }
 
     @SuppressWarnings("unchecked")
-    private static <T extends AbstractBaseInfluxObj> Map<String, Object> getOtherColumns(T t, Class<T> clazz) {
+    private static <T extends AbstractBaseInfluxObj> OtherColumnsHolder getOtherColumns(T t, Class<T> clazz) {
         for (Field field : clazz.getDeclaredFields()) {
             if (field.isAnnotationPresent(OtherColumns.class)) {
                 field.setAccessible(true);
+                OtherColumns anno = field.getAnnotation(OtherColumns.class);
                 try {
                     Object o = field.get(t);
                     if (o == null) {
@@ -131,7 +147,7 @@ public class InfluxObjMapper {
                     if (!Map.class.isAssignableFrom(o.getClass())) {
                         throw new ClassCastException("【InfluxObjMapper】OtherColumns 仅能用于 Map 类");
                     }
-                    return (Map<String, Object>) o;
+                    return new OtherColumnsHolder((Map<String, Object>) o, anno);
                 } catch (IllegalAccessException e) {
                     throw new RuntimeException(e);
                 }
@@ -157,13 +173,13 @@ public class InfluxObjMapper {
             try {
                 // 从缓存获取或新建 Handler 实例
                 TypeHandler<?> handler = HANDLER_CACHE.computeIfAbsent(handlerClass,
-                        k -> {
-                            try {
-                                return k.getDeclaredConstructor().newInstance();
-                            } catch (Exception e) {
-                                throw new RuntimeException("无法实例化 TypeHandler: " + k.getName(), e);
-                            }
-                        });
+                                                                       k -> {
+                                                                           try {
+                                                                               return k.getDeclaredConstructor().newInstance();
+                                                                           } catch (Exception e) {
+                                                                               throw new RuntimeException("无法实例化 TypeHandler: " + k.getName(), e);
+                                                                           }
+                                                                       });
                 // 执行转换
                 valueToSet = handler.getResult(o);
             } catch (Exception e) {
@@ -271,5 +287,11 @@ public class InfluxObjMapper {
             }
         }
         return sb.toString();
+    }
+
+    private record OtherColumnsHolder(Map<String, Object> otherColumns, OtherColumns anno, List<Pattern> patterns) {
+        OtherColumnsHolder(Map<String, Object> otherColumns, OtherColumns anno) {
+            this(otherColumns, anno, Arrays.stream(anno.excludePatterns()).map(Pattern::compile).toList());
+        }
     }
 }

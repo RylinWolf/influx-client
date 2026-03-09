@@ -3,14 +3,12 @@ package com.wolfhouse.influxclient.core;
 import com.wolfhouse.influxclient.constant.InfluxBuiltInTableMeta;
 import com.wolfhouse.influxclient.constant.SqlSegmentType;
 import com.wolfhouse.influxclient.exception.InfluxClientException;
+import com.wolfhouse.influxclient.exception.InfluxClientQueryException;
 import com.wolfhouse.influxclient.pojo.AbstractActionInfluxObj;
 import lombok.Getter;
 
 import java.time.Instant;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
@@ -242,6 +240,25 @@ public class InfluxConditionWrapper<T extends AbstractActionInfluxObj> {
     }
 
     /**
+     * 添加IN条件。
+     *
+     * @param column    列名
+     * @param values    比较值集合
+     * @param condition 是否添加此条件
+     * @return 当前 ConditionWrapper 实例
+     */
+    public InfluxConditionWrapper<T> in(String column, Collection<?> values, boolean condition) {
+        if (values.isEmpty()) {
+            return this;
+        }
+        return condition ? appendConditionAndMask(column, values, SqlSegmentType.IN) : this;
+    }
+
+    public InfluxConditionWrapper<T> in(String column, Collection<?> values) {
+        return in(column, values, true);
+    }
+
+    /**
      * 添加时间范围条件。
      *
      * @param start        起始时间
@@ -315,9 +332,27 @@ public class InfluxConditionWrapper<T extends AbstractActionInfluxObj> {
             and = true;
             this.builder.append(" AND ( ");
         }
-        this.builder.append(" ( `").append(column).append("` ")
-                    .append(sqlSegment.value)
-                    .append(" $").append(addColumnValueMapping(column, value)).append(" ) ");
+        this.builder.append(" ( `").append(column).append("` ").append(sqlSegment.value);
+        // 修饰符搭配的参数是多值的情况
+        if (sqlSegment.isMultiValue) {
+            this.builder.append("(");
+            if (!(value instanceof Collection<?> valueColl)) {
+                throw new InfluxClientQueryException("条件构造失败！修饰符 [%s] 所搭配参数应当是集合，当前参数: [%s]".formatted(sqlSegment.value, value));
+            }
+            if (valueColl.isEmpty()) {
+                throw new InfluxClientException("条件构造失败！修饰符 [%s] 搭配集合为空".formatted(sqlSegment.value));
+            }
+            valueColl.forEach(v -> {
+                this.builder.append(" $").append(addColumnValueMapping(column, v));
+                this.builder.append(",");
+            });
+            this.builder.deleteCharAt(this.builder.length() - 1);
+            this.builder.append(")");
+        } else {
+            this.builder.append(" $").append(addColumnValueMapping(column, value));
+        }
+
+        this.builder.append(" ) ");
         // 若拼接 and 条件，则闭合括号
         if (and) {
             this.builder.append(" ) ");

@@ -15,4 +15,6 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.FIELD})
 public @interface OtherColumns {
+    /** 排除列正则表达式 */
+    String[] excludePatterns() default {};
 }

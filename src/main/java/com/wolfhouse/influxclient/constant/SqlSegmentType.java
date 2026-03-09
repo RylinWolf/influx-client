@@ -7,6 +7,7 @@ public enum SqlSegmentType {
     /** SQL 字段类型 */
     AND("AND"),
     OR("OR"),
+    IN("IN", true),
     EQ("="),
     LT("<"),
     GT(">"),
@@ -15,10 +16,17 @@ public enum SqlSegmentType {
     NE("!="),
     ;
 
-    public final String value;
+    public final String  value;
+    public final boolean isMultiValue;
 
     SqlSegmentType(String value) {
-        this.value = value;
+        this.value        = value;
+        this.isMultiValue = false;
+    }
+
+    SqlSegmentType(String value, boolean isMultiValue) {
+        this.value        = value;
+        this.isMultiValue = isMultiValue;
     }
 
 

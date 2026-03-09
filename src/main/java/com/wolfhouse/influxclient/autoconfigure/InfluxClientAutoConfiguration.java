@@ -37,7 +37,7 @@ public class InfluxClientAutoConfiguration {
         try {
             InfluxDBClientImpl client = (InfluxDBClientImpl) InfluxDBClient.getInstance(
                     properties.getUrl(), token.toCharArray(), properties.getDatabase());
-            log.info("[InfluxClientStarter] InfluxDB服务器版本: {}", client.getServerVersion());
+            log.info("[InfluxClientStarter] InfluxDB客户端版本: {}", client.getServerVersion());
             return client;
         } catch (Exception e) {
             log.error("[InfluxClientStarter] InfluxDB客户端初始化失败: {}, properties: {}", e.getMessage(), properties, e);
