@@ -23,6 +23,11 @@ import java.util.stream.Stream;
 @Slf4j
 public class InfluxObjMapper {
     /**
+     * 缓存 (类名#字段名) → Field，避免重复反射查找和异常抛出
+     */
+    private static final Map<String, Optional<Field>> FIELD_CACHE = new ConcurrentHashMap<>();
+
+    /**
      * 缓存 TypeHandler 实例，避免重复反射创建
      */
     private static final Map<Class<? extends TypeHandler<?>>, TypeHandler<?>> HANDLER_CACHE = new ConcurrentHashMap<>();
@@ -252,15 +257,21 @@ public class InfluxObjMapper {
      * 递归查找字段（支持 private 和父类字段）
      */
     private static Field getField(Class<?> clazz, String fieldName) {
-        Class<?> current = clazz;
-        while (current != null && current != Object.class) {
-            try {
-                return current.getDeclaredField(fieldName);
-            } catch (NoSuchFieldException e) {
-                current = current.getSuperclass();
-            }
-        }
-        return null;
+        // 使用缓存代替大量catch异常造成性能下降
+        return FIELD_CACHE.computeIfAbsent(
+                clazz.getName() + "#" + fieldName,
+                k -> {
+                    Class<?> current = clazz;
+                    while (current != null && current != Object.class) {
+                        try {
+                            return Optional.of(current.getDeclaredField(fieldName));
+                        } catch (NoSuchFieldException e) {
+                            current = current.getSuperclass();
+                        }
+                    }
+                    return Optional.empty();
+                }
+        ).orElse(null);
     }
 
     /**
