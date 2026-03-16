@@ -296,7 +296,7 @@ public class InfluxClient {
      */
     public <T extends AbstractActionInfluxObj> InfluxQueryWrapper<T> addQueryAll(@Nonnull InfluxQueryWrapper<T> wrapper,
                                                                                  @Nullable Comparator<String> comparator) {
-        List<String> columns = new ArrayList<>(getAllColumns(wrapper.getMeasurement()));
+        List<String> columns = new ArrayList<>(tableColumns(wrapper.getMeasurement()));
         if (columns == null || columns.isEmpty()) {
             return wrapper;
         }
@@ -365,7 +365,7 @@ public class InfluxClient {
      * @param measurement 测量表名称
      * @return 列名列表
      */
-    private List<String> getAllColumns(@Nonnull String measurement) {
+    public List<String> tableColumns(@Nonnull String measurement) {
         List<Map<String, Object>> maps = queryMap(InfluxQueryWrapper.create(InfluxBuiltInTableMeta.COLUMN_META_MEASUREMENT)
                                                                     .select(InfluxBuiltInTableMeta.COLUMN_META_COLUMN_NAME)
                                                                     .setMeasurementQuotingDelimiter("")
@@ -378,6 +378,21 @@ public class InfluxClient {
             return List.of();
         }
         return maps.stream().map(m -> String.valueOf(m.get(InfluxBuiltInTableMeta.COLUMN_META_COLUMN_NAME))).toList();
+    }
+
+    /**
+     * 获取当前数据库下的所有表名
+     * @return 表名列表
+     */
+    public List<String> tableNames() {
+        List<Map<String, Object>> maps = queryMap(InfluxQueryWrapper.create(InfluxBuiltInTableMeta.TABLE_META_MEASUREMENTS)
+                                                                    .select(InfluxBuiltInTableMeta.TABLE_META_TABLE_NAME)
+                                                                    .setMeasurementQuotingDelimiter("")
+                                                                    .withTime(false)
+                                                                    .where()
+                                                                    .eq(InfluxBuiltInTableMeta.TABLE_META_TABLE_SCHEMA, InfluxBuiltInTableMeta.TABLE_META_TABLE_SCHEMA_IOX)
+                                                                    .parent());
+        return maps.stream().map(m -> String.valueOf(m.get(InfluxBuiltInTableMeta.TABLE_META_TABLE_NAME))).toList();
     }
 
     /**

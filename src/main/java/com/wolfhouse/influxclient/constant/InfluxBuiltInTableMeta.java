@@ -18,4 +18,17 @@ public interface InfluxBuiltInTableMeta {
     String COLUMN_META_MEASUREMENT      = "information_schema.columns";
     /** 列信息 表名字段名 */
     String COLUMN_META_TABLE_NAME_FIELD = "table_name";
+
+    // region 表信息
+    /** 表信息表名 */
+    String TABLE_META_MEASUREMENTS = "information_schema.tables";
+    /** 表信息 - 表名字段名 */
+    String TABLE_META_TABLE_NAME  = "table_name";
+    /** 表信息 - 表类型字段名 */
+    String TABLE_META_TABLE_TYPE  = "table_type";
+    /** 表信息 - 表结构字段名 */
+    String TABLE_META_TABLE_SCHEMA = "table_schema";
+    /** 表信息 - 表结构 - iox */
+    String TABLE_META_TABLE_SCHEMA_IOX = "iox";
+    // endregion
 }
