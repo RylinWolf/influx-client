@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.ToString;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -41,6 +42,10 @@ public class InfluxResult extends AbstractBaseInfluxObj {
 
     public List<InfluxRow> rows() {
         return this.results;
+    }
+
+    public List<Map<String, Object>> toMap() {
+        return this.results.stream().map(InfluxRow::getRowRecord).toList();
     }
 
     public int size() {
