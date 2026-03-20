@@ -11,7 +11,7 @@ import java.util.Map;
 /**
  * InfluxDB 结果封装类，用于封装查询结果集
  * <p>
- * 注意，该查询结果类基于 map，且
+ * 注意，该查询结果类基于 map
  *
  * @author Rylin Wolf
  */

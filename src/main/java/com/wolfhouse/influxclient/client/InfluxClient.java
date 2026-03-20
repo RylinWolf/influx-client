@@ -382,6 +382,7 @@ public class InfluxClient {
 
     /**
      * 获取当前数据库下的所有表名
+     *
      * @return 表名列表
      */
     public List<String> tableNames() {
@@ -466,6 +467,25 @@ public class InfluxClient {
                                                                                                          @Nonnull Class<E> clazz,
                                                                                                          long pageNum,
                                                                                                          long pageSize) {
+        return pagination(wrapper, clazz, pageNum, pageSize, 0);
+    }
+
+    /**
+     * 对给定的查询条件进行分页查询，返回指定类型的分页结果。
+     *
+     * @param <E>      数据对象的类型，必须继承自 AbstractBaseInfluxObj。
+     * @param wrapper  查询条件包装器，用于构建查询的条件和参数。
+     * @param clazz    数据对象的目标类型，用于映射查询结果。
+     * @param pageNum  当前页码，设为 0 则不限制查询结果数
+     * @param pageSize 每页显示的数据条数，设为 0 则不限制查询结果数
+     * @param offset   分页偏移量，用于跳过指定数量的记录
+     * @return 包含查询结果的分页对象，包含总记录数、页码、每页大小以及当前页的数据。
+     */
+    public <E extends AbstractBaseInfluxObj, T extends AbstractActionInfluxObj> InfluxPage<E> pagination(@Nonnull InfluxQueryWrapper<T> wrapper,
+                                                                                                         @Nonnull Class<E> clazz,
+                                                                                                         long pageNum,
+                                                                                                         long pageSize,
+                                                                                                         long offset) {
         // 验证分页参数
         assert pageNum > 0 && pageSize > 0 : "分页参数配置有误，必须大于等于 0";
         // 构建分页结果
@@ -482,7 +502,7 @@ public class InfluxClient {
         boolean doPage = pageNum != 0 && pageSize != 0;
         if (doPage) {
             wrapper.modify()
-                   .limit(pageSize, (pageNum - 1) * pageSize);
+                   .limit(pageSize, (pageNum - 1) * pageSize + offset);
         }
         // 执行查询，设置结果集
         page.records(queryMap(wrapper, clazz).stream().toList());
