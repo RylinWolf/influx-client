@@ -5,6 +5,7 @@ import com.wolfhouse.influxclient.constant.SqlSegmentType;
 import com.wolfhouse.influxclient.exception.InfluxClientException;
 import com.wolfhouse.influxclient.exception.InfluxClientQueryException;
 import com.wolfhouse.influxclient.pojo.AbstractActionInfluxObj;
+import io.micrometer.common.util.StringUtils;
 import lombok.Getter;
 
 import java.time.Instant;
@@ -91,7 +92,7 @@ public class InfluxConditionWrapper<T extends AbstractActionInfluxObj> {
      */
     public InfluxConditionWrapper<T> and(Consumer<InfluxConditionWrapper<T>> consumer, boolean condition) {
         String currentSql = builder.toString().trim().toUpperCase();
-        if (currentSql.isBlank() || currentSql.endsWith(SqlSegmentType.AND.value)) {
+        if (currentSql.isBlank()) {
             builder.append(" ( ")
                    .append(mayDo(condition, consumer, null))
                    .append(" ) ");
@@ -121,7 +122,10 @@ public class InfluxConditionWrapper<T extends AbstractActionInfluxObj> {
      * @return 当前 ConditionWrapper 实例
      */
     public InfluxConditionWrapper<T> or(Consumer<InfluxConditionWrapper<T>> consumer, boolean condition) {
-        if (builder.toString().trim().toUpperCase().endsWith(SqlSegmentType.OR.value)) {
+        String currentSql = builder.toString().trim();
+        if (StringUtils.isBlank(currentSql)
+                || currentSql.toUpperCase().endsWith(SqlSegmentType.OR.value)
+                || currentSql.endsWith("(")) {
             builder.append(" ( ")
                    .append(mayDo(condition, consumer, null))
                    .append(" ) ");

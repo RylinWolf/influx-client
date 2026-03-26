@@ -1,6 +1,9 @@
 influx:
-  database: influx_client_demo
+  database: mig_test
   url: http://localhost:8181
+#  token: apiv3_M0EnU8DcI9dNHFCmI1vZVwTjavYABkZhxMpY0DWiJEhhPrJq3UxoizcE3t3lVZSC1Kb61NRPdRJrN2iJepTVcA
+#  database: oms
+#  url: http://192.168.1.202:8181
 logging:
   level:
     com.wolfhouse.influxclient: debug

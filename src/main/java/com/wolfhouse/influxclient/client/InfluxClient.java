@@ -13,6 +13,7 @@ import com.wolfhouse.influxclient.pojo.AbstractActionInfluxObj;
 import com.wolfhouse.influxclient.pojo.AbstractBaseInfluxObj;
 import com.wolfhouse.influxclient.pojo.InfluxPage;
 import com.wolfhouse.influxclient.pojo.InfluxResult;
+import jakarta.annotation.PreDestroy;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -517,14 +518,23 @@ public class InfluxClient {
     /**
      * 关闭 InfluxDB 客户端连接，确保资源释放。
      */
+    @PreDestroy
     public void close() {
         try {
-            this.scheduledThreadPool.shutdown();
-            this.scheduledFuture.cancel(true);
             handleCache();
-            this.client.close();
             CompletableFuture.allOf(insertTasks.toArray(CompletableFuture[]::new)).join();
         } catch (Exception ignored) {
+        } finally {
+            if (this.scheduledFuture != null) {
+                this.scheduledFuture.cancel(true);
+            }
+            if (this.scheduledThreadPool != null) {
+                this.scheduledThreadPool.shutdown();
+            }
+            try {
+                this.client.close();
+            } catch (Exception ignored) {
+            }
         }
     }
 
