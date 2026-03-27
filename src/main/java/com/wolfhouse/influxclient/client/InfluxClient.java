@@ -310,7 +310,9 @@ public class InfluxClient {
     }
 
     /**
-     * 对于指定查询条件包装器，添加查询全部字段操作，并返回修改后的包装器
+     * 对于指定查询包装器，执行添加查询全部字段操作，并返回修改后的包装器。
+     * <p>
+     * 从包装器中获取 measurement，并获取其中的所有列，作为查询目标。
      * 使用自然排序
      *
      * @param wrapper 查询条件包装器
@@ -442,6 +444,46 @@ public class InfluxClient {
     public <T extends AbstractActionInfluxObj> InfluxQueryWrapper<T> addRecent(InfluxQueryWrapper<T> parent,
                                                                                String... queryFields) {
         return addRecent(parent, true, queryFields);
+    }
+
+
+    /**
+     * 向指定查询构造器中添加条件，用于查询最近的数据。
+     * <p>
+     * 该方法执行后，会进行以下操作：
+     * - 创建最近查询构造器，通过 {@link InfluxClient#addRecent(InfluxQueryWrapper, Boolean, String...)} 添加最近查询条件
+     * - 执行查询，获得所有分组的最近/最早记录
+     * - 根据记录，构造查询这些记录完整数据的条件
+     *
+     * @param parent      父查询器，表示需要添加最近查询功能的查询器。
+     * @param desc        是否按降序排列，true 表示降序，false 表示升序。
+     * @param queryFields 查询字段列表，用于指定需要匹配的字段。
+     * @return 构造完成的查询器，用于执行包含最近数据条件的查询。
+     */
+    public <T extends AbstractActionInfluxObj> InfluxQueryWrapper<?> addQueryRecent(InfluxQueryWrapper<T> parent,
+                                                                                    boolean desc,
+                                                                                    String... queryFields) {
+        // 构造最近查询，查询结果
+        InfluxQueryWrapper<?>     wrapper = InfluxQueryWrapper.create(parent.getMeasurement());
+        List<Map<String, Object>> recent  = this.queryMap(addRecent(wrapper, desc, queryFields));
+
+        // 初始化完整查询器
+        InfluxQueryWrapper<?> dataWrapper = InfluxQueryWrapper.create(parent.getMeasurement());
+        // 添加所有目标列
+        addQueryAll(dataWrapper);
+        InfluxConditionWrapper<?> where = dataWrapper.where();
+        // 从结果中，提取字段并保存为条件
+        recent.forEach(m -> {
+            // 移除最近时间别名字段，使用时间字段代替
+            Object recentTime = m.remove(RECENT_TIME_FIELD);
+            where.or(w -> {
+                m.forEach((k, v) -> {
+                    w.eq(k, String.valueOf(v));
+                });
+                w.eq(TIMESTAMP_FIELD, recentTime.toString());
+            });
+        });
+        return dataWrapper;
     }
 
 
