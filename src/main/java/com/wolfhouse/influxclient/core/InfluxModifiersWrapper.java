@@ -3,6 +3,7 @@ package com.wolfhouse.influxclient.core;
 import com.wolfhouse.influxclient.pojo.AbstractActionInfluxObj;
 import lombok.Getter;
 import lombok.Setter;
+import org.springframework.util.CollectionUtils;
 
 import javax.annotation.Nullable;
 import java.util.LinkedHashSet;
@@ -130,9 +131,15 @@ public class InfluxModifiersWrapper<T extends AbstractActionInfluxObj> {
     }
 
     protected void buildGroupBy(StringBuilder builder) {
-        if (groupBy != null && !groupBy.isEmpty()) {
-            builder.append(" GROUP BY ").append(String.join(",", groupBy));
+        if (CollectionUtils.isEmpty(groupBy)) {
+            return;
         }
+        builder.append(" GROUP BY ")
+               .append(" ( ");
+        groupBy.forEach(c -> builder.append(parent.surroundWithDelimiter(c))
+                                    .append(","));
+        builder.deleteCharAt(builder.length() - 1);
+        builder.append(" ) ");
     }
 
     protected void buildOrderBy(StringBuilder builder) {

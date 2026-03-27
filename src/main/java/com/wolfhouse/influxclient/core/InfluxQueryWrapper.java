@@ -511,4 +511,11 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
         return this.modifiersWrapper;
     }
     // endregion
+
+    // region 私有方法
+
+    protected String surroundWithDelimiter(String str) {
+        return columnQuotingDelimiter + str + columnQuotingDelimiter;
+    }
+    // endregion
 }
