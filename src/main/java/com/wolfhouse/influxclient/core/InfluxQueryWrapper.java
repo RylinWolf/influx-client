@@ -1,7 +1,6 @@
 package com.wolfhouse.influxclient.core;
 
 import com.wolfhouse.influxclient.InfluxClientConstant;
-import com.wolfhouse.influxclient.constant.select.AggSql;
 import com.wolfhouse.influxclient.constant.select.ColSql;
 import com.wolfhouse.influxclient.exception.NoSuchTagOrFieldException;
 import com.wolfhouse.influxclient.pojo.AbstractActionInfluxObj;
@@ -17,7 +16,6 @@ import org.springframework.util.StringUtils;
 import javax.annotation.Nonnull;
 import java.util.*;
 
-import static com.wolfhouse.influxclient.InfluxClientConstant.RECENT_TIME_FIELD;
 import static com.wolfhouse.influxclient.InfluxClientConstant.TIMESTAMP_FIELD;
 
 /**
@@ -282,35 +280,6 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
         }
         return this;
     }
-
-    /**
-     * 添加查询条件：按照时间排序，最近/最早的一次记录
-     *
-     * @param desc        是否降序，默认为 true（最近一次），若 false 则为最早一次
-     * @param queryFields 查询列
-     * @return 当前 InfluxQueryWRapper 实例
-     */
-    public InfluxQueryWrapper<T> recent(Boolean desc, String... queryFields) {
-        this.withTime(false)
-            .select(queryFields)
-            .selectO(Boolean.TRUE.equals(desc) ?
-                             AggSql.max(TIMESTAMP_FIELD).as(RECENT_TIME_FIELD) :
-                             AggSql.min(TIMESTAMP_FIELD).as(RECENT_TIME_FIELD));
-        this.modify()
-            .groupBy(queryFields);
-        return this;
-    }
-
-    /**
-     * 添加查询条件：按照时间排序，最近的一次记录
-     *
-     * @param queryFields 查询列
-     * @return 当前 InfluxQueryWRapper 实例
-     */
-    public InfluxQueryWrapper<T> recent(String... queryFields) {
-        return recent(true, queryFields);
-    }
-
 
     /**
      * 处理特殊查询字段，如函数调用、聚合函数等。

@@ -3,6 +3,7 @@ package com.wolfhouse.influxclient.client;
 import com.influxdb.v3.client.InfluxDBClient;
 import com.wolfhouse.influxclient.comparator.NaturalComparator;
 import com.wolfhouse.influxclient.constant.InfluxBuiltInTableMeta;
+import com.wolfhouse.influxclient.constant.select.AggSql;
 import com.wolfhouse.influxclient.core.InfluxConditionWrapper;
 import com.wolfhouse.influxclient.core.InfluxObjMapper;
 import com.wolfhouse.influxclient.core.InfluxQueryWrapper;
@@ -27,6 +28,9 @@ import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static com.wolfhouse.influxclient.InfluxClientConstant.RECENT_TIME_FIELD;
+import static com.wolfhouse.influxclient.InfluxClientConstant.TIMESTAMP_FIELD;
 
 /**
  * @author Rylin Wolf
@@ -397,6 +401,50 @@ public class InfluxClient {
         return maps.stream().map(m -> String.valueOf(m.get(InfluxBuiltInTableMeta.TABLE_META_TABLE_NAME))).toList();
     }
 
+
+    /**
+     * 向指定的 wrapper 中添加查询条件：按照时间排序，最近/最早的一次记录。
+     * <p>
+     * 该方法执行完毕后，指定的 wrapper 中会根据特定字段分组，并按照时间排序获取最近/最早的一次记录。
+     * 记录列仅会包含指定的 groupBy 列。
+     * <p>
+     * 使用该方法构造后的 wrapper 不应再添加其他查询的列名。
+     * <p>
+     * 例: addRecent(wrapper, true, "field1", "field2") 在执行完毕后，wrapper 的内容为:
+     * <p>
+     * SELECT field1, field2, max(timestamp) as recent_time FROM table_name GROUP BY field1, field2
+     *
+     * @param desc    是否降序，默认为 true（最近一次），若 false 则为最早一次
+     * @param groupBy 分组列，查询基准
+     * @return 当前 InfluxQueryWrapper 实例
+     */
+    public <T extends AbstractActionInfluxObj> InfluxQueryWrapper<T> addRecent(InfluxQueryWrapper<T> parent,
+                                                                               Boolean desc,
+                                                                               String... groupBy) {
+        parent.withTime(false)
+              .select(groupBy)
+              .selectO(Boolean.TRUE.equals(desc) ?
+                               AggSql.max(TIMESTAMP_FIELD).as(RECENT_TIME_FIELD) :
+                               AggSql.min(TIMESTAMP_FIELD).as(RECENT_TIME_FIELD));
+        parent.modify()
+              .groupBy(groupBy);
+        return parent;
+    }
+
+    /**
+     * 向指定的 wrapper 中添加查询条件：按照时间排序，最近的一次记录。
+     * <p>
+     * 用法见 {@link #addRecent(InfluxQueryWrapper, Boolean, String...)}
+     *
+     * @param queryFields 查询列
+     * @return 当前 InfluxQueryWRapper 实例
+     */
+    public <T extends AbstractActionInfluxObj> InfluxQueryWrapper<T> addRecent(InfluxQueryWrapper<T> parent,
+                                                                               String... queryFields) {
+        return addRecent(parent, true, queryFields);
+    }
+
+
     /**
      * 基本的查询方法，使用给定的查询条件包装器执行查询操作，并返回查询结果流。
      *
@@ -464,10 +512,11 @@ public class InfluxClient {
      * @param pageSize 每页显示的数据条数，设为 0 则不限制查询结果数
      * @return 包含查询结果的分页对象，包含总记录数、页码、每页大小以及当前页的数据。
      */
-    public <E extends AbstractBaseInfluxObj, T extends AbstractActionInfluxObj> InfluxPage<E> pagination(@Nonnull InfluxQueryWrapper<T> wrapper,
-                                                                                                         @Nonnull Class<E> clazz,
-                                                                                                         long pageNum,
-                                                                                                         long pageSize) {
+    public <E extends AbstractBaseInfluxObj, T extends AbstractActionInfluxObj> InfluxPage<E>
+    pagination(@Nonnull InfluxQueryWrapper<T> wrapper,
+               @Nonnull Class<E> clazz,
+               long pageNum,
+               long pageSize) {
         return pagination(wrapper, clazz, pageNum, pageSize, 0);
     }
 
@@ -482,11 +531,12 @@ public class InfluxClient {
      * @param offset   分页偏移量，用于跳过指定数量的记录
      * @return 包含查询结果的分页对象，包含总记录数、页码、每页大小以及当前页的数据。
      */
-    public <E extends AbstractBaseInfluxObj, T extends AbstractActionInfluxObj> InfluxPage<E> pagination(@Nonnull InfluxQueryWrapper<T> wrapper,
-                                                                                                         @Nonnull Class<E> clazz,
-                                                                                                         long pageNum,
-                                                                                                         long pageSize,
-                                                                                                         long offset) {
+    public <E extends AbstractBaseInfluxObj, T extends AbstractActionInfluxObj> InfluxPage<E>
+    pagination(@Nonnull InfluxQueryWrapper<T> wrapper,
+               @Nonnull Class<E> clazz,
+               long pageNum,
+               long pageSize,
+               long offset) {
         // 验证分页参数
         assert pageNum > 0 && pageSize > 0 : "分页参数配置有误，必须大于等于 0";
         // 构建分页结果
