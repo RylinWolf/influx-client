@@ -1,6 +1,8 @@
 package com.wolfhouse.influxclient.core;
 
 import com.wolfhouse.influxclient.InfluxClientConstant;
+import com.wolfhouse.influxclient.constant.select.AggSql;
+import com.wolfhouse.influxclient.constant.select.ColSql;
 import com.wolfhouse.influxclient.exception.NoSuchTagOrFieldException;
 import com.wolfhouse.influxclient.pojo.AbstractActionInfluxObj;
 import com.wolfhouse.influxclient.pojo.InfluxFields;
@@ -9,10 +11,13 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import javax.annotation.Nonnull;
 import java.util.*;
 
+import static com.wolfhouse.influxclient.InfluxClientConstant.RECENT_TIME_FIELD;
 import static com.wolfhouse.influxclient.InfluxClientConstant.TIMESTAMP_FIELD;
 
 /**
@@ -26,7 +31,7 @@ import static com.wolfhouse.influxclient.InfluxClientConstant.TIMESTAMP_FIELD;
 @Data
 @EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
-@SuppressWarnings({"UnusedReturnValue", "unused"})
+@SuppressWarnings({"UnusedReturnValue", "unused", "MagicValues"})
 public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseSqlBuilder {
     /** 表示当前构造器是否为匿名构造器（未通过泛型类型创建） */
     private boolean                       isLambda                    = false;
@@ -44,8 +49,10 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
     private InfluxTags                    tags;
     /** 当前查询涉及的字段约束集合 */
     private InfluxFields                  fields;
-    /** 当前查询的目标列以及别名集合 */
+    /** 当前查询的目标列以及别名映射 */
     private LinkedHashMap<String, String> aliasMap                    = new LinkedHashMap<>();
+    /** 当前查询的特殊目标列以及别名映射 */
+    private LinkedHashMap<String, String> funcAliasMap                = new LinkedHashMap<>();
     /** 当前查询的目标列集合，若有别名则使用别名代替（仅在构建后有效） */
     private LinkedHashSet<String>         mixedTargetsWithAlias;
     /** 当前查询的条件构造器，用于构建WHERE子句 */
@@ -179,11 +186,24 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
      * 该方法会将其添加到内部的查询目标字段队列中。
      *
      * @param fields 查询的字段列表，表示需要在返回结果中包含的字段名称。
-     *               字段列表中的字段名必须存在于标签集合或字段集合中，否则会触发验证异常。
+     *               若非匿名查询，字段列表中的字段名必须存在于标签集合或字段集合中，否则会触发验证异常。
      * @return 当前 InfluxQueryWrapper 实例，用于支持链式调用。
      * @throws NoSuchTagOrFieldException 如果传入的字段中存在不在标签集合或字段集合中的字段名，则抛出异常。
      */
     public InfluxQueryWrapper<T> select(String... fields) {
+        return select(Arrays.asList(fields));
+    }
+
+    /**
+     * 设置查询的目标字段列表。
+     * 该方法会将其添加到内部的查询目标字段队列中。
+     *
+     * @param fields 查询的字段列表，表示需要在返回结果中包含的字段名称。
+     *               若非匿名查询，字段列表中的字段名必须存在于标签集合或字段集合中，否则会触发验证异常。
+     * @return 当前 InfluxQueryWrapper 实例，用于支持链式调用。
+     * @throws NoSuchTagOrFieldException 如果传入的字段中存在不在标签集合或字段集合中的字段名，则抛出异常。
+     */
+    public InfluxQueryWrapper<T> selectO(Object... fields) {
         return select(Arrays.asList(fields));
     }
 
@@ -240,10 +260,15 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
         return selectSelfTag().selectSelfField();
     }
 
-    public InfluxQueryWrapper<T> select(SequencedCollection<String> targets) {
-        for (String field : targets) {
+    public InfluxQueryWrapper<T> select(SequencedCollection<?> targets) {
+        for (Object field : targets) {
+            // 处理特殊查询字段
+            if (ColSql.class.isAssignableFrom(field.getClass())) {
+                processColSql((ColSql) field);
+                continue;
+            }
             // 处理别名
-            String[] s     = field.split("\\s", 2);
+            String[] s     = field.toString().split("\\s", 2);
             String   alias = null;
             if (s.length > 1) {
                 alias = s[1].trim();
@@ -256,6 +281,66 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
             this.aliasMap.put(s[0], alias);
         }
         return this;
+    }
+
+    /**
+     * 添加查询条件：按照时间排序，最近/最早的一次记录
+     *
+     * @param desc        是否降序，默认为 true（最近一次），若 false 则为最早一次
+     * @param queryFields 查询列
+     * @return 当前 InfluxQueryWRapper 实例
+     */
+    public InfluxQueryWrapper<T> recent(Boolean desc, String... queryFields) {
+        this.withTime(false)
+            .select(queryFields)
+            .selectO(Boolean.TRUE.equals(desc) ?
+                             AggSql.max(TIMESTAMP_FIELD).as(RECENT_TIME_FIELD) :
+                             AggSql.min(TIMESTAMP_FIELD).as(RECENT_TIME_FIELD));
+        this.modify()
+            .groupBy(queryFields);
+        return this;
+    }
+
+    /**
+     * 添加查询条件：按照时间排序，最近的一次记录
+     *
+     * @param queryFields 查询列
+     * @return 当前 InfluxQueryWRapper 实例
+     */
+    public InfluxQueryWrapper<T> recent(String... queryFields) {
+        return recent(true, queryFields);
+    }
+
+
+    /**
+     * 处理特殊查询字段，如函数调用、聚合函数等。
+     *
+     * @param field 特殊查询字段对象
+     */
+    private void processColSql(ColSql field) {
+        // 1. 构造 SQL 块
+        StringBuilder builder = new StringBuilder();
+        // 字段
+        builder.append(field.type().seg)
+               .append("(");
+        // 列
+        Collection<String> cols = field.cols();
+        if (!CollectionUtils.isEmpty(cols)) {
+            cols.forEach(c -> {
+                builder.append(columnQuotingDelimiter)
+                       .append(c)
+                       .append(columnQuotingDelimiter)
+                       .append(",");
+            });
+            builder.deleteCharAt(builder.length() - 1);
+        }
+        builder.append(")");
+        // 2. 处理别名
+        String alias = field.alias();
+        if (!StringUtils.hasLength(alias)) {
+            alias = field.type().name() + "_" + String.join("-", field.cols());
+        }
+        funcAliasMap.put(builder.toString(), alias);
     }
 
     /**
@@ -297,20 +382,61 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
         builder.append("SELECT ");
         // 初始化目标字段集合
         this.mixedTargetsWithAlias = new LinkedHashSet<>();
+        // 普通查询字段
+        buildNormalSelect(builder);
+        // 特殊查询字段
+        buildFunctionalSelect(builder);
+        // 处理结尾分隔符
+        String suffix = ",";
+        if (builder.toString().endsWith(suffix)) {
+            builder.deleteCharAt(builder.length() - 1);
+        }
+    }
+
+    /**
+     * 构建功能性选择语句并追加到传入的 StringBuilder 对象中。
+     * 该方法将从 funcAliasMap 中提取目标字段及其对应的别名，按照一定规则生成
+     * 查询语句的一部分，并附加到输入的 StringBuilder。如生成的语句以逗号结尾，最终将其移除。
+     *
+     * @param builder 用于追加 SQL 选择语句的 StringBuilder 对象
+     */
+    private void buildFunctionalSelect(StringBuilder builder) {
+        SequencedSet<String>  queryFuncTargets = funcAliasMap.sequencedKeySet();
+        LinkedHashSet<String> funcTargets      = new LinkedHashSet<>(queryFuncTargets);
+        while (!funcTargets.isEmpty()) {
+            String target = funcTargets.removeFirst();
+            String alias  = funcAliasMap.get(target);
+            builder.append(target)
+                   .append(" AS ")
+                   .append(surroundWithDelimiter(alias))
+                   .append(",");
+            // 添加至混合目标字段
+            mixedTargetsWithAlias.add(alias);
+        }
+    }
+
+    /**
+     * 构建普通的 SELECT 查询语句。
+     * <p>
+     * 该方法根据 aliasMap 中的键值对构建查询字段列表，并处理可能存在的字段别名。
+     * 如果配置中启用了时间字段 withTime 且查询字段中未包含时间字段（TIMESTAMP_FIELD），
+     * 则会将时间字段添加到查询中。
+     *
+     * @param builder 用于拼接生成 SELECT 查询语句的 StringBuilder 对象
+     */
+    private void buildNormalSelect(StringBuilder builder) {
         SequencedSet<String>  queryTargets = aliasMap.sequencedKeySet();
         LinkedHashSet<String> targets      = new LinkedHashSet<>(queryTargets);
         // 若有别名，则特殊处理
         while (!targets.isEmpty()) {
             String target = targets.removeFirst();
             String alias  = aliasMap.get(target);
-            builder.append(columnQuotingDelimiter)
-                   .append(target)
-                   .append(columnQuotingDelimiter);
+            builder.append(surroundWithDelimiter(target));
             if (alias != null) {
                 // 添加入目标字段集合
                 mixedTargetsWithAlias.add(alias);
                 // 特殊处理别名
-                builder.append(" AS ").append(alias);
+                builder.append(" AS ").append(surroundWithDelimiter(alias));
             } else {
                 mixedTargetsWithAlias.add(target);
             }
@@ -323,8 +449,8 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
             // 添加时间字段至混合目标字段
             mixedTargetsWithAlias.add(TIMESTAMP_FIELD);
             builder.append(TIMESTAMP_FIELD);
-        } else {
-            builder.deleteCharAt(builder.length() - 1);
+            // 添加分隔符，便于后续
+            builder.append(",");
         }
     }
 
@@ -332,9 +458,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
     protected void buildFromTable(StringBuilder builder) {
         // 指定目标表
         builder.append(" FROM ")
-               .append(measurementQuotingDelimiter)
-               .append(measurement)
-               .append(measurementQuotingDelimiter);
+               .append(surroundWithDelimiter(measurement));
     }
 
     @Override
@@ -391,10 +515,10 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
             if (reference == null || (m = reference.getMeasurement()) == null) {
                 throw new IllegalArgumentException("无目标表！");
             }
-            return measurement(m).aliasMap.isEmpty();
+            return measurement(m).aliasMap.isEmpty() && funcAliasMap.isEmpty();
         }
         // 无查询参数，则返回 false
-        return !aliasMap.isEmpty();
+        return !aliasMap.isEmpty() && !funcAliasMap.isEmpty();
     }
 
     /**
