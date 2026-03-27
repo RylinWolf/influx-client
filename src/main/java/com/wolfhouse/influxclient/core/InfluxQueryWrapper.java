@@ -427,7 +427,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
     protected void buildFromTable(StringBuilder builder) {
         // 指定目标表
         builder.append(" FROM ")
-               .append(surroundWithDelimiter(measurement));
+               .append(surroundWithTableDelimiter(measurement));
     }
 
     @Override
@@ -487,7 +487,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
             return measurement(m).aliasMap.isEmpty() && funcAliasMap.isEmpty();
         }
         // 无查询参数，则返回 false
-        return !aliasMap.isEmpty() && !funcAliasMap.isEmpty();
+        return !aliasMap.isEmpty() || !funcAliasMap.isEmpty();
     }
 
     /**
@@ -609,6 +609,10 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
 
     protected String surroundWithDelimiter(String str) {
         return columnQuotingDelimiter + str + columnQuotingDelimiter;
+    }
+
+    protected String surroundWithTableDelimiter(String str) {
+        return measurementQuotingDelimiter + str + measurementQuotingDelimiter;
     }
     // endregion
 }
