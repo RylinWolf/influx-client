@@ -286,7 +286,20 @@ public class InfluxClient {
      * @return 查询结果的流，每个结果为一个包含列值的数组。
      */
     public Stream<Object[]> query(@Nonnull InfluxQueryWrapper<?> wrapper) {
-        if (count(wrapper) < 1) {
+        return query(wrapper, true);
+    }
+
+    /**
+     * 使用给定的查询条件包装器执行查询操作，并返回查询结果流。
+     * <p>
+     * 该方法会进行计数、参数检查。
+     *
+     * @param wrapper    查询条件包装器，用于构建查询语句和获取查询参数。
+     * @param countCheck 是否进行计数检查，如果为true，则在执行查询前检查计数是否为 0，为 0 则返回空流。
+     * @return 查询结果的流，每个结果为一个包含列值的数组。
+     */
+    public Stream<Object[]> query(@Nonnull InfluxQueryWrapper<?> wrapper, boolean countCheck) {
+        if (countCheck && count(wrapper) < 1) {
             return Stream.empty();
         }
         InfluxConditionWrapper<?> condition = wrapper.getConditionWrapper();
@@ -379,7 +392,8 @@ public class InfluxClient {
                                                                     .withTime(false)
                                                                     .where()
                                                                     .eq(InfluxBuiltInTableMeta.COLUMN_META_TABLE_NAME_FIELD, measurement)
-                                                                    .parent());
+                                                                    .parent(),
+                                                  false);
         if (maps.isEmpty()) {
             log.warn("【InfluxClient】无法获取表 {} 的列信息，是否为空？", measurement);
             return List.of();
@@ -399,7 +413,8 @@ public class InfluxClient {
                                                                     .withTime(false)
                                                                     .where()
                                                                     .eq(InfluxBuiltInTableMeta.TABLE_META_TABLE_SCHEMA, InfluxBuiltInTableMeta.TABLE_META_TABLE_SCHEMA_IOX)
-                                                                    .parent());
+                                                                    .parent(),
+                                                  false);
         return maps.stream().map(m -> String.valueOf(m.get(InfluxBuiltInTableMeta.TABLE_META_TABLE_NAME))).toList();
     }
 
@@ -465,7 +480,7 @@ public class InfluxClient {
                                                                                     String... queryFields) {
         // 构造最近查询，查询结果
         InfluxQueryWrapper<?>     wrapper = InfluxQueryWrapper.create(parent.getMeasurement());
-        List<Map<String, Object>> recent  = this.queryMap(addRecent(wrapper, desc, queryFields));
+        List<Map<String, Object>> recent  = this.queryMap(addRecent(wrapper, desc, queryFields), false);
 
         // 初始化完整查询器
         InfluxQueryWrapper<?> dataWrapper = InfluxQueryWrapper.create(parent.getMeasurement());
@@ -508,7 +523,22 @@ public class InfluxClient {
      */
     public <E extends AbstractBaseInfluxObj, T extends AbstractActionInfluxObj> Collection<E> queryMap(@Nonnull InfluxQueryWrapper<T> wrapper,
                                                                                                        @Nonnull Class<E> clazz) {
-        List<Object[]> res = query(wrapper).toList();
+        return queryMap(wrapper, clazz, true);
+    }
+
+    /**
+     * 使用给定的查询条件包装器和指定的目标类，将查询结果映射为指定类型的集合。
+     *
+     * @param <E>        目标类型，必须继承自 AbstractBaseInfluxObj。
+     * @param wrapper    查询条件包装器，用于构建查询条件。
+     * @param clazz      目标类的类型信息，用于映射查询结果。
+     * @param countCheck 是否检查查询结果数量，如果为true，则在查询结果为空时返回空列表。开启该选项会强制查询前获取数据数量。
+     * @return 映射后的目标类型集合。
+     */
+    public <E extends AbstractBaseInfluxObj, T extends AbstractActionInfluxObj> Collection<E> queryMap(@Nonnull InfluxQueryWrapper<T> wrapper,
+                                                                                                       @Nonnull Class<E> clazz,
+                                                                                                       boolean countCheck) {
+        List<Object[]> res = query(wrapper, countCheck).toList();
         if (res.isEmpty()) {
             return Collections.emptyList();
         }
@@ -522,7 +552,18 @@ public class InfluxClient {
      * @return 查询结果的列表，每个列表项为一个映射，表示查询结果中的各列及其对应的值。
      */
     public List<Map<String, Object>> queryMap(@Nonnull InfluxQueryWrapper<?> wrapper) {
-        List<Object[]> res = query(wrapper).toList();
+        return queryMap(wrapper, true);
+    }
+
+    /**
+     * 根据给定的查询条件包装器执行查询，并将结果转换为包含键值对的列表形式返回。
+     *
+     * @param wrapper    查询条件包装器，包含查询的条件和参数，用于构建查询语句和设置查询参数。
+     * @param countCheck 是否进行计数检查，如果为true，则在执行查询前检查计数是否为 0，为 0 则返回空流。
+     * @return 查询结果的列表，每个列表项为一个映射，表示查询结果中的各列及其对应的值。
+     */
+    public List<Map<String, Object>> queryMap(@Nonnull InfluxQueryWrapper<?> wrapper, boolean countCheck) {
+        List<Object[]> res = query(wrapper, countCheck).toList();
         if (res.isEmpty()) {
             return Collections.emptyList();
         }
