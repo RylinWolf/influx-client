@@ -14,5 +14,8 @@ import java.lang.annotation.Target;
 @Target({ElementType.FIELD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface OverrideColumn {
-
+    /**
+     * 是否忽略 null 值，当为 true 时，null 值不会覆盖已有初始值。
+     */
+    boolean ignoreNull() default true;
 }

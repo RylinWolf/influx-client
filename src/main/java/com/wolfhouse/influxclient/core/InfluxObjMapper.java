@@ -62,7 +62,7 @@ public class InfluxObjMapper {
                                                           Class<T> clazz,
                                                           SequencedCollection<String> targets) {
         // 是否允许覆盖有默认值的列
-        boolean overrideColumn = false;
+        OverrideColumn classOverrideColumnAnno = null;
         // 对于 InfluxResult 特殊处理
         if (clazz.equals(InfluxResult.class)) {
             return (T) mapToResult(obj, targets);
@@ -71,7 +71,7 @@ public class InfluxObjMapper {
             return (T) compressToMap(obj, targets);
         }
         if (clazz.isAnnotationPresent(OverrideColumn.class)) {
-            overrideColumn = true;
+            classOverrideColumnAnno = clazz.getAnnotation(OverrideColumn.class);
         }
         try {
             // 创建目标类对象
@@ -118,13 +118,22 @@ public class InfluxObjMapper {
                 }
                 // 这里字段一定存在
                 field.setAccessible(true);
-                Object defaultValue = field.get(t);
-                if (defaultValue != null) {
-                    if (!overrideColumn && !field.isAnnotationPresent(OverrideColumn.class)) {
-                        log.debug("【InfluxObjMapper】字段 {} 已有初始值: {}，将不再注入", fieldName, defaultValue);
+                // 字段的覆盖注解优先级高于类
+                OverrideColumn fieldOverAnno = field.getAnnotation(OverrideColumn.class);
+                fieldOverAnno = fieldOverAnno == null ? classOverrideColumnAnno : fieldOverAnno;
+                // 如果有注解，检查是否有初始值，有则检查是否忽略 null，是则检查要覆盖的值
+                if (fieldOverAnno != null) {
+                    Object defaultValue = field.get(t);
+                    if (defaultValue != null && fieldOverAnno.ignoreNull()) {
+                        Object valueToSet = handleType(o, field);
+                        if (valueToSet != null) {
+                            log.debug("【InfluxObjMapper】字段 {} 已有初始值: {}，允许覆盖，将进行覆盖", fieldName, defaultValue);
+                            field.set(t, valueToSet);
+                            continue;
+                        }
+                        log.debug("【InfluxObjMapper】字段 {} 已有初始值: {}，要注入的值为 null，将不进行覆盖", fieldName, defaultValue);
                         continue;
                     }
-                    log.debug("【InfluxObjMapper】字段 {} 已有初始值: {}，允许覆盖，将进行覆盖", fieldName, defaultValue);
                 }
                 // 处理自定义 TypeHandler
                 Object valueToSet = handleType(o, field);
