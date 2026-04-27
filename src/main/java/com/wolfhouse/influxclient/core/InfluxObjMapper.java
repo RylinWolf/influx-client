@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
@@ -149,23 +150,31 @@ public class InfluxObjMapper {
 
     @SuppressWarnings("unchecked")
     private static <T extends AbstractBaseInfluxObj> OtherColumnsHolder getOtherColumns(T t, Class<T> clazz) {
-        for (Field field : clazz.getDeclaredFields()) {
-            if (field.isAnnotationPresent(OtherColumns.class)) {
-                field.setAccessible(true);
-                OtherColumns anno = field.getAnnotation(OtherColumns.class);
-                try {
-                    Object o = field.get(t);
-                    if (o == null) {
-                        throw new NullPointerException("【InfluxObjMapper】注入 OtherColumns 失败，字段未初始化");
+        Class<?> current = clazz;
+        while (current != null && current != Object.class) {
+            for (Field field : current.getDeclaredFields()) {
+                // 如果是父类字段，且为 private，则跳过
+                if (current != clazz && Modifier.isPrivate(field.getModifiers())) {
+                    continue;
+                }
+                if (field.isAnnotationPresent(OtherColumns.class)) {
+                    field.setAccessible(true);
+                    OtherColumns anno = field.getAnnotation(OtherColumns.class);
+                    try {
+                        Object o = field.get(t);
+                        if (o == null) {
+                            throw new NullPointerException("【InfluxObjMapper】注入 OtherColumns 失败，字段未初始化");
+                        }
+                        if (!Map.class.isAssignableFrom(o.getClass())) {
+                            throw new ClassCastException("【InfluxObjMapper】OtherColumns 仅能用于 Map 类");
+                        }
+                        return new OtherColumnsHolder((Map<String, Object>) o, anno);
+                    } catch (IllegalAccessException e) {
+                        throw new RuntimeException(e);
                     }
-                    if (!Map.class.isAssignableFrom(o.getClass())) {
-                        throw new ClassCastException("【InfluxObjMapper】OtherColumns 仅能用于 Map 类");
-                    }
-                    return new OtherColumnsHolder((Map<String, Object>) o, anno);
-                } catch (IllegalAccessException e) {
-                    throw new RuntimeException(e);
                 }
             }
+            current = current.getSuperclass();
         }
         return null;
     }
