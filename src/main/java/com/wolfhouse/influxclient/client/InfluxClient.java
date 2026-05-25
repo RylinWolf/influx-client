@@ -65,7 +65,7 @@ public class InfluxClient {
     private      ConcurrentLinkedQueue<CompletableFuture<Void>> insertTasks;
 
     /** 启用缓存区，启动缓存处理定时任务 */
-    private void enableCache() {
+    public void enableCache() {
         if (cacheEnabled) {
             return;
         }
@@ -88,12 +88,12 @@ public class InfluxClient {
             // 设置状态
             cacheCount   = 0L;
             cacheEnabled = true;
-            log.info("【InfluxClient】缓存区已启用，定时任务已启动，缓存刷新间隔为 {} ms", cacheFlushInterval.toMillis());
+            log.info("【InfluxClient】缓存区已启用，定时任务已启动，缓存刷新间隔为 {} ms，缓存区大小为 {}", cacheFlushInterval.toMillis(), cacheBound);
         }
     }
 
     /** 处理缓存区，将缓存区内容保存入 InfluxDB */
-    private synchronized void handleCache() {
+    public synchronized void handleCache() {
         // 未启用缓存或缓存列表为空
         if (!cacheEnabled || cache.isEmpty()) {
             log.debug("【InfluxClient】缓存区未启用或为空，跳过处理");
@@ -200,12 +200,14 @@ public class InfluxClient {
         try {
             // 2. 数量与缓存区已有数量之和超过缓存区上限，则将缓存区清空
             if (size + cacheCount > cacheBound) {
+                log.debug("【InfluxClient】批量插入缓存数量超过缓存区上限，清空缓存区并插入数据库");
                 handleCache();
             }
             // 3. 数量与缓存区已有数量之和未超过缓存区上限，添加至缓存区
             cache.addAll(objs);
             // 4. 更新缓存区数量
             cacheCount += size;
+            log.debug("【InfluxClient】批量插入缓存数量：{}，当前缓存区数量：{}", size, cacheCount);
         } finally {
             cacheInsertLock.unlock();
         }
