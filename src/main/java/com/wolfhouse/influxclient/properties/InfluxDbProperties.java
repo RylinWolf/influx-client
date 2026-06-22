@@ -3,6 +3,8 @@ package com.wolfhouse.influxclient.properties;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.time.Duration;
+
 /**
  * @author Rylin Wolf
  */
@@ -23,4 +25,10 @@ public class InfluxDbProperties {
      * 目标数据库（Bucket）。
      */
     private String database;
+
+    /** 缓存区数量上限, 默认 1000 条 */
+    private Long cacheBound = 1000L;
+
+    /** 缓存区刷新时间间隔(ms), 默认 1 分钟 */
+    private Long cacheFlushInterval = Duration.ofMinutes(1).toMillis();
 }

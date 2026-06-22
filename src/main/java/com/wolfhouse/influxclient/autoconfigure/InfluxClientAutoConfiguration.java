@@ -1,8 +1,8 @@
 package com.wolfhouse.influxclient.autoconfigure;
 
 import com.influxdb.v3.client.InfluxDBClient;
-import com.influxdb.v3.client.internal.InfluxDBClientImpl;
 import com.wolfhouse.influxclient.client.InfluxClient;
+import com.wolfhouse.influxclient.client.InfluxClientProxy;
 import com.wolfhouse.influxclient.properties.InfluxDbProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -22,32 +22,12 @@ import org.springframework.context.annotation.Bean;
 @Slf4j
 @AutoConfiguration
 @EnableConfigurationProperties(InfluxDbProperties.class)
-@ConditionalOnClass({InfluxClient.class, InfluxDBClient.class})
+@ConditionalOnClass({InfluxClient.class, InfluxDBClient.class, InfluxClientProxy.class})
 @ConditionalOnProperty(prefix = "influx", name = "url")
 public class InfluxClientAutoConfiguration {
     @Bean(destroyMethod = "close")
-    @ConditionalOnMissingBean(InfluxDBClient.class)
-    public InfluxDBClient influxDbClient(InfluxDbProperties properties) {
-        log.info("[InfluxClientStarter] 正在初始化InfluxDB客户端... {}", properties.getUrl());
-        String token = properties.getToken();
-        if (token == null || token.isEmpty()) {
-            log.error("[InfluxClientStarter] Token为空，InfluxDB客户端将不会被初始化");
-            return null;
-        }
-        try {
-            InfluxDBClientImpl client = (InfluxDBClientImpl) InfluxDBClient.getInstance(
-                    properties.getUrl(), token.toCharArray(), properties.getDatabase());
-            log.info("[InfluxClientStarter] InfluxDB客户端版本: {}", client.getServerVersion());
-            return client;
-        } catch (Exception e) {
-            log.error("[InfluxClientStarter] InfluxDB客户端初始化失败: {}, properties: {}", e.getMessage(), properties, e);
-            return null;
-        }
-    }
-
-    @Bean(destroyMethod = "close")
-    @ConditionalOnMissingBean(InfluxClient.class)
-    public InfluxClient influxClient(InfluxDBClient influxDbClient) {
-        return new InfluxClient(influxDbClient);
+    @ConditionalOnMissingBean(InfluxClientProxy.class)
+    public InfluxClientProxy influxDbClient(InfluxDbProperties properties) {
+        return InfluxClientProxy.instance(properties);
     }
 }

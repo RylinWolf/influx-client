@@ -42,27 +42,27 @@ public class InfluxClient {
     public final InfluxDBClient                                 client;
     /** 是否启用缓存 */
     @Getter
-    private      Boolean                                        cacheEnabled       = false;
+    protected    Boolean                                        cacheEnabled       = false;
     /** 缓存区 */
-    private      ConcurrentLinkedQueue<AbstractActionInfluxObj> cache;
+    protected    ConcurrentLinkedQueue<AbstractActionInfluxObj> cache;
     /** 缓存区刷新间隔，在缓存区未满时，根据该间隔时间将缓存区数据写入 Influx DB. 最低精度为毫秒 */
     @Setter
     @Getter
-    private      Duration                                       cacheFlushInterval = Duration.ofSeconds(1);
+    protected    Duration                                       cacheFlushInterval = Duration.ofSeconds(1);
     /** 缓存区数量，达到此数量后将会将缓存区批量插入。 */
     @Setter
     @Getter
-    private      Long                                           cacheBound         = 1000L;
+    protected    Long                                           cacheBound         = 1000L;
     /** 当前缓存区数量 */
-    private      Long                                           cacheCount;
+    protected    Long                                           cacheCount;
     /** 缓存插入锁 */
-    private      ReentrantLock                                  cacheInsertLock;
+    protected    ReentrantLock                                  cacheInsertLock;
     /** 定时任务调度器 */
-    private      ScheduledThreadPoolExecutor                    scheduledThreadPool;
+    protected    ScheduledThreadPoolExecutor                    scheduledThreadPool;
     /** 定时任务 */
-    private      ScheduledFuture<?>                             scheduledFuture;
+    protected    ScheduledFuture<?>                             scheduledFuture;
     /** 正在执行的异步插入数据任务 */
-    private      ConcurrentLinkedQueue<CompletableFuture<Void>> insertTasks;
+    protected    ConcurrentLinkedQueue<CompletableFuture<Void>> insertTasks;
 
     /** 启用缓存区，启动缓存处理定时任务 */
     public void enableCache() {
@@ -272,6 +272,18 @@ public class InfluxClient {
         }
     }
 
+
+    /**
+     * 基本的查询方法，使用给定的查询条件包装器执行查询操作，并返回查询结果流。
+     *
+     * @param wrapper 查询条件包装器，用于构建查询语句和获取查询参数。
+     * @return 查询结果的流，每个结果为一个包含列值的数组。
+     */
+    private Stream<Object[]> doQuery(@Nonnull InfluxQueryWrapper<?> wrapper) {
+        InfluxConditionWrapper<?> condition = wrapper.getConditionWrapper();
+        return doQuery(wrapper.build(), condition == null ? null : condition.getParameters());
+    }
+
     /**
      * 执行给定的SQL查询，并使用参数化查询返回结果流。
      * <p>
@@ -437,7 +449,7 @@ public class InfluxClient {
      * <p>
      * 例: addRecent(wrapper, true, "field1", "field2") 在执行完毕后，wrapper 的内容为:
      * <p>
-     * SELECT field1, field2, max(timestamp) as recent_time FROM table_name GROUP BY field1, field2
+     * SELECT field1, field2, max(time) as recent_time FROM table_name GROUP BY field1, field2
      *
      * @param desc    是否降序，默认为 true（最近一次），若 false 则为最早一次
      * @param groupBy 分组列，查询基准
@@ -507,18 +519,6 @@ public class InfluxClient {
             });
         });
         return dataWrapper;
-    }
-
-
-    /**
-     * 基本的查询方法，使用给定的查询条件包装器执行查询操作，并返回查询结果流。
-     *
-     * @param wrapper 查询条件包装器，用于构建查询语句和获取查询参数。
-     * @return 查询结果的流，每个结果为一个包含列值的数组。
-     */
-    private Stream<Object[]> doQuery(@Nonnull InfluxQueryWrapper<?> wrapper) {
-        InfluxConditionWrapper<?> condition = wrapper.getConditionWrapper();
-        return doQuery(wrapper.build(), condition == null ? null : condition.getParameters());
     }
 
     /**
