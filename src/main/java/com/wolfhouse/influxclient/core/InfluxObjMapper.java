@@ -137,8 +137,12 @@ public class InfluxObjMapper {
                     }
                 }
                 // 处理自定义 TypeHandler
-                Object valueToSet = handleType(o, field);
-                field.set(t, valueToSet);
+                try {
+                    Object valueToSet = handleType(o, field);
+                    field.set(t, valueToSet);
+                } catch (Exception e) {
+                    log.error("【InfluxObjMapper】处理字段时异常，字段: {}, 类型: {}", field.getName(), field.getType().getName(), e);
+                }
             }
             return t;
 

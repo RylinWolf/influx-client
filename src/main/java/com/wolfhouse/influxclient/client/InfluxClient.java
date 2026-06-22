@@ -94,20 +94,26 @@ public class InfluxClient {
 
     /** 处理缓存区，将缓存区内容保存入 InfluxDB */
     public synchronized void handleCache() {
-        // 未启用缓存或缓存列表为空
-        if (!cacheEnabled || cache.isEmpty()) {
-            log.debug("【InfluxClient】缓存区未启用或为空，跳过处理");
-            return;
+        cacheInsertLock.lock();
+        try {
+            // 未启用缓存或缓存列表为空
+            if (!cacheEnabled || cache.isEmpty()) {
+                log.debug("【InfluxClient】缓存区未启用或为空，跳过处理");
+                return;
+            }
+            // 临时缓存列表
+            ArrayList<? extends AbstractActionInfluxObj> cacheList = new ArrayList<>(cache);
+            cache.clear();
+            log.debug("【InfluxClient】缓存区处理完成，缓存数量: {}", cacheList.size());
+            cacheCount = 0L;
+            // 异步执行插入任务
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> this.insertAll(cacheList));
+            insertTasks.add(future);
+            future.whenComplete((v, t) -> insertTasks.remove(future));
+        } finally {
+            cacheInsertLock.unlock();
         }
-        // 临时缓存列表
-        ArrayList<? extends AbstractActionInfluxObj> cacheList = new ArrayList<>(cache);
-        cache.clear();
-        log.debug("【InfluxClient】缓存区处理完成，缓存数量: {}", cacheList.size());
-        cacheCount = 0L;
-        // 异步执行插入任务
-        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> this.insertAll(cacheList));
-        insertTasks.add(future);
-        future.whenComplete((v, t) -> insertTasks.remove(future));
+
     }
 
     /**
