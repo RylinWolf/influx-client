@@ -495,15 +495,18 @@ public class InfluxClient {
      * @param queryFields 查询字段列表，用于指定需要匹配的字段。
      * @return 构造完成的查询器，用于执行包含最近数据条件的查询。
      */
-    public <T extends AbstractActionInfluxObj> InfluxQueryWrapper<?> addQueryRecent(InfluxQueryWrapper<T> parent,
+    public <T extends AbstractActionInfluxObj> InfluxQueryWrapper<T> addQueryRecent(InfluxQueryWrapper<T> parent,
                                                                                     boolean desc,
                                                                                     String... queryFields) {
-        // 构造最近查询，查询结果
-        InfluxQueryWrapper<?>     wrapper = InfluxQueryWrapper.create(parent.getMeasurement());
-        List<Map<String, Object>> recent  = this.queryMap(addRecent(wrapper, desc, queryFields), false);
+        // 构造最近查询
+        InfluxQueryWrapper<T> wrapper = InfluxQueryWrapper.create(parent.getMeasurement());
+        // 添加条件
+        wrapper.setConditionWrapper(parent.getConditionWrapper());
+        // 查询最近记录
+        List<Map<String, Object>> recent = this.queryMap(addRecent(wrapper, desc, queryFields), false);
 
         // 初始化完整查询器
-        InfluxQueryWrapper<?> dataWrapper = InfluxQueryWrapper.create(parent.getMeasurement());
+        InfluxQueryWrapper<T> dataWrapper = InfluxQueryWrapper.create(parent.getMeasurement());
         // 添加所有目标列
         addQueryAll(dataWrapper);
         InfluxConditionWrapper<?> where = dataWrapper.where();
@@ -529,8 +532,8 @@ public class InfluxClient {
      * @param clazz   目标类的类型信息，用于映射查询结果。
      * @return 映射后的目标类型集合。
      */
-    public <E extends AbstractBaseInfluxObj, T extends AbstractActionInfluxObj> Collection<E> queryMap(@Nonnull InfluxQueryWrapper<T> wrapper,
-                                                                                                       @Nonnull Class<E> clazz) {
+    public <E extends AbstractBaseInfluxObj, T extends AbstractActionInfluxObj> List<E> queryMap(@Nonnull InfluxQueryWrapper<T> wrapper,
+                                                                                                 @Nonnull Class<E> clazz) {
         return queryMap(wrapper, clazz, true);
     }
 
@@ -543,9 +546,9 @@ public class InfluxClient {
      * @param countCheck 是否检查查询结果数量，如果为true，则在查询结果为空时返回空列表。开启该选项会强制查询前获取数据数量。
      * @return 映射后的目标类型集合。
      */
-    public <E extends AbstractBaseInfluxObj, T extends AbstractActionInfluxObj> Collection<E> queryMap(@Nonnull InfluxQueryWrapper<T> wrapper,
-                                                                                                       @Nonnull Class<E> clazz,
-                                                                                                       boolean countCheck) {
+    public <E extends AbstractBaseInfluxObj, T extends AbstractActionInfluxObj> List<E> queryMap(@Nonnull InfluxQueryWrapper<T> wrapper,
+                                                                                                 @Nonnull Class<E> clazz,
+                                                                                                 boolean countCheck) {
         List<Object[]> res = query(wrapper, countCheck).toList();
         if (res.isEmpty()) {
             return Collections.emptyList();

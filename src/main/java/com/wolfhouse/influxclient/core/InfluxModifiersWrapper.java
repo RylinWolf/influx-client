@@ -8,6 +8,7 @@ import org.springframework.util.CollectionUtils;
 import javax.annotation.Nullable;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * InfluxDB 适配的查询修饰符构造器
@@ -25,6 +26,7 @@ public class InfluxModifiersWrapper<T extends AbstractActionInfluxObj> {
     @Setter
     private Boolean               globalDesc;
     private LinkedHashSet<String> groupBy;
+    private String                having;
     private InfluxQueryWrapper<T> parent;
 
     // region 构造方法
@@ -114,6 +116,22 @@ public class InfluxModifiersWrapper<T extends AbstractActionInfluxObj> {
         return this;
     }
 
+    public InfluxModifiersWrapper<T> having(Consumer<InfluxConditionWrapper<T>> wrapperConsumer) {
+        // 创建子条件构造器，用于构造 having 条件
+        InfluxConditionWrapper<T> wrapper = InfluxConditionWrapper.create(this.parent);
+        wrapperConsumer.accept(wrapper);
+        // 合并子条件构造器的参数至主要条件构造器
+        this.parent.getConditionWrapper().combineParamsFrom(wrapper);
+        String havingCondition = wrapper.sql();
+        if (this.having == null) {
+            this.having = havingCondition;
+        } else {
+            this.having += " AND " + havingCondition;
+        }
+        return this;
+
+    }
+
     // endregion
 
     // region 执行构建
@@ -125,6 +143,7 @@ public class InfluxModifiersWrapper<T extends AbstractActionInfluxObj> {
     public String toSql() {
         StringBuilder builder = new StringBuilder();
         buildGroupBy(builder);
+        buildHaving(builder);
         buildOrderBy(builder);
         buildLimit(builder);
         return builder.toString().trim();
@@ -154,6 +173,14 @@ public class InfluxModifiersWrapper<T extends AbstractActionInfluxObj> {
         }
         if (offset > 0) {
             builder.append(" OFFSET ").append(offset);
+        }
+    }
+
+    protected void buildHaving(StringBuilder builder) {
+        if (having != null) {
+            builder.append(" HAVING (")
+                   .append(having)
+                   .append(") ");
         }
     }
     // endregion

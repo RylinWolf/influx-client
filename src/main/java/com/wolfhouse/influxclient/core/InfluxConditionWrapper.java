@@ -37,15 +37,16 @@ import java.util.function.Consumer;
 public class InfluxConditionWrapper<T extends AbstractActionInfluxObj> {
     /** 查询条件参数与值映射 */
     @Getter
-    private final Map<String, Object>   parameters;
+    protected final Map<String, Object> parameters;
     /** 查询条件的目标字段 */
     @Getter
-    private final Set<String>           targets  = new HashSet<>();
-    private final StringBuilder         builder;
+    protected final Set<String>         targets  = new HashSet<>();
+    private final   StringBuilder       builder;
     /** 查询条件参数数量 */
-    private       AtomicInteger         paramIdx = new AtomicInteger(0);
+    protected       AtomicInteger       paramIdx = new AtomicInteger(0);
+
     /** 父查询链对象 */
-    private       InfluxQueryWrapper<T> parent;
+    private InfluxQueryWrapper<T> parent;
 
     /**
      * 构造一个空的 ConditionWrapper 实例。
@@ -75,6 +76,11 @@ public class InfluxConditionWrapper<T extends AbstractActionInfluxObj> {
     public static <T extends AbstractActionInfluxObj> InfluxConditionWrapper<T> create(InfluxQueryWrapper<T> parent) {
         InfluxConditionWrapper<T> wrapper = create();
         wrapper.parent = parent;
+        if (parent.getConditionWrapper() != null) {
+            wrapper.paramIdx = parent.getConditionWrapper().paramIdx;
+        } else {
+            parent.setConditionWrapper(wrapper);
+        }
         return wrapper;
     }
 
@@ -101,7 +107,6 @@ public class InfluxConditionWrapper<T extends AbstractActionInfluxObj> {
         builder.append(mayDo(condition, consumer, SqlSegmentType.AND));
         return this;
     }
-
 
     /**
      * 使用 AND 逻辑连接新的条件。
@@ -133,6 +138,9 @@ public class InfluxConditionWrapper<T extends AbstractActionInfluxObj> {
         builder.append(mayDo(condition, consumer, SqlSegmentType.OR));
         return this;
     }
+    // endregion
+
+    // region 基本查询条件
 
     /**
      * 使用 OR 逻辑连接新的条件。
@@ -143,9 +151,6 @@ public class InfluxConditionWrapper<T extends AbstractActionInfluxObj> {
     public InfluxConditionWrapper<T> or(Consumer<InfluxConditionWrapper<T>> consumer) {
         return or(consumer, true);
     }
-    // endregion
-
-    // region 基本查询条件
 
     /**
      * 添加等于(=)条件。
@@ -279,6 +284,23 @@ public class InfluxConditionWrapper<T extends AbstractActionInfluxObj> {
                 .appendConditionAndMask(InfluxBuiltInTableMeta.TIME_TAG, end.toString(), includeEnd ? SqlSegmentType.LE : SqlSegmentType.LT);
     }
 
+    // endregion
+
+    /**
+     * 合并另一个条件构造器的参数/目标集合
+     *
+     * @param wrapper 另一个条件构造器
+     * @return 当前 ConditionWrapper 实例
+     */
+    public InfluxConditionWrapper<T> combineParamsFrom(InfluxConditionWrapper<T> wrapper) {
+        if (this == wrapper) {
+            return this;
+        }
+        this.parameters.putAll(wrapper.parameters);
+        this.targets.addAll(wrapper.targets);
+        return this;
+    }
+
     /**
      * 添加时间范围条件，包含起始和结束时间。
      *
@@ -289,8 +311,6 @@ public class InfluxConditionWrapper<T extends AbstractActionInfluxObj> {
     public InfluxConditionWrapper<T> duration(Instant start, Instant end) {
         return duration(start, true, end, true);
     }
-
-    // endregion
 
     /**
      * 构建完整的SQL查询语句。
@@ -394,8 +414,6 @@ public class InfluxConditionWrapper<T extends AbstractActionInfluxObj> {
             return "";
         }
         InfluxConditionWrapper<T> instance = create(this.parent);
-        // 同步匿名 wrapper 的上下文（参数数量）
-        instance.paramIdx = paramIdx;
         consumer.accept(instance);
         // 获取并添加匿名 wrapper 的处理结果
         this.targets.addAll(instance.targets);
@@ -412,7 +430,7 @@ public class InfluxConditionWrapper<T extends AbstractActionInfluxObj> {
      * @return 生成的参数名
      */
     private String paramName() {
-        return "param_" + paramIdx.incrementAndGet();
+        return "param_" + this.paramIdx.incrementAndGet();
     }
     // endregion
 }

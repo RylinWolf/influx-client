@@ -61,6 +61,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
     private boolean                       isConditioned               = false;
     /** 当前查询的查询参数构造器 */
     private InfluxModifiersWrapper<T>     modifiersWrapper;
+    /** 是否调用修饰符 */
     private boolean                       isModified                  = false;
 
     // region 构造方法
@@ -146,7 +147,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
      *
      * @return 一个新的 {@link InfluxQueryWrapper} 实例，测量名称和引用对象均为空。
      */
-    public static InfluxQueryWrapper<?> create() {
+    public static <T extends AbstractActionInfluxObj> InfluxQueryWrapper<T> create() {
         return create("");
     }
 
@@ -158,8 +159,8 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
      * @param measurement 测量名称，用于指定数据查询的目标表。
      * @return 返回一个初始化了测量名称的 InfluxQueryWrapper 实例。
      */
-    public static InfluxQueryWrapper<?> create(@Nonnull String measurement) {
-        InfluxQueryWrapper<?> wrapper = new InfluxQueryWrapper<>(measurement);
+    public static <T extends AbstractActionInfluxObj> InfluxQueryWrapper<T> create(@Nonnull String measurement) {
+        InfluxQueryWrapper<T> wrapper = new InfluxQueryWrapper<>(measurement);
         wrapper.isLambda = true;
         return wrapper;
     }

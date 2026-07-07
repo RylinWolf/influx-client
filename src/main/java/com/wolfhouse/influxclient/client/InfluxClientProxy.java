@@ -25,6 +25,7 @@ import java.util.stream.Stream;
  * @author Rylin Wolf
  */
 @Slf4j
+@SuppressWarnings({"unused"})
 public class InfluxClientProxy {
     @Getter
     @Accessors(fluent = true)
@@ -337,7 +338,7 @@ public class InfluxClientProxy {
      * @param queryFields 查询字段列表，用于指定需要匹配的字段。
      * @return 构造完成的查询器，用于执行包含最近数据条件的查询。
      */
-    public <T extends AbstractActionInfluxObj> InfluxQueryWrapper<?> addQueryRecent(InfluxQueryWrapper<T> parent,
+    public <T extends AbstractActionInfluxObj> InfluxQueryWrapper<T> addQueryRecent(InfluxQueryWrapper<T> parent,
                                                                                     boolean desc,
                                                                                     String... queryFields) {
         return client.addQueryRecent(parent, desc, queryFields);
@@ -351,8 +352,8 @@ public class InfluxClientProxy {
      * @param clazz   目标类的类型信息，用于映射查询结果。
      * @return 映射后的目标类型集合。
      */
-    public <E extends AbstractBaseInfluxObj, T extends AbstractActionInfluxObj> Collection<E> queryMap(@javax.annotation.Nonnull InfluxQueryWrapper<T> wrapper,
-                                                                                                       @javax.annotation.Nonnull Class<E> clazz) {
+    public <E extends AbstractBaseInfluxObj, T extends AbstractActionInfluxObj> List<E> queryMap(@javax.annotation.Nonnull InfluxQueryWrapper<T> wrapper,
+                                                                                                 @javax.annotation.Nonnull Class<E> clazz) {
         return client.queryMap(wrapper, clazz);
     }
 
@@ -435,9 +436,9 @@ public class InfluxClientProxy {
      * @param countCheck 是否检查查询结果数量，如果为true，则在查询结果为空时返回空列表。开启该选项会强制查询前获取数据数量。
      * @return 映射后的目标类型集合。
      */
-    public <E extends AbstractBaseInfluxObj, T extends AbstractActionInfluxObj> Collection<E> queryMap(@javax.annotation.Nonnull InfluxQueryWrapper<T> wrapper,
-                                                                                                       @javax.annotation.Nonnull Class<E> clazz,
-                                                                                                       boolean countCheck) {
+    public <E extends AbstractBaseInfluxObj, T extends AbstractActionInfluxObj> List<E> queryMap(@javax.annotation.Nonnull InfluxQueryWrapper<T> wrapper,
+                                                                                                 @javax.annotation.Nonnull Class<E> clazz,
+                                                                                                 boolean countCheck) {
         return client.queryMap(wrapper, clazz, countCheck);
     }
 
