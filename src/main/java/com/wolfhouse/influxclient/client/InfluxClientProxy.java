@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import javax.annotation.Nullable;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
 /**
@@ -124,9 +125,13 @@ public class InfluxClientProxy {
         client.enableCache();
     }
 
-    /** 处理缓存区，将缓存区内容保存入 InfluxDB */
-    public void handleCache() {
-        client.handleCache();
+    /**
+     * 异步处理缓存区，将缓存区内容保存入 InfluxDB
+     *
+     * @return 异步处理任务
+     */
+    public CompletableFuture<Void> handleCache() {
+        return client.handleCache();
     }
 
     /**
@@ -174,6 +179,17 @@ public class InfluxClientProxy {
      */
     public <T extends AbstractActionInfluxObj> void insertCache(@javax.annotation.Nonnull Collection<T> objs) {
         client.insertCache(objs);
+    }
+
+    /**
+     * 将单个对象插入缓存区。
+     * 当缓存区已满时，会触发缓存处理，将缓存区内容保存入 InfluxDB。
+     *
+     * @param <T> 扩展自 AbstractActionInfluxObj 的对象类型。
+     * @param obj 待插入的对象，不能为空。
+     */
+    public <T extends AbstractActionInfluxObj> void insertCache(@javax.annotation.Nonnull T obj) {
+        client.insertCache(obj);
     }
 
     /**

@@ -39,30 +39,30 @@ import static com.wolfhouse.influxclient.InfluxClientConstant.TIMESTAMP_FIELD;
 @RequiredArgsConstructor
 @SuppressWarnings("all")
 public class InfluxClient {
-    public final InfluxDBClient                                 client;
+    public final       InfluxDBClient                                 client;
     /** 是否启用缓存 */
     @Getter
-    protected    Boolean                                        cacheEnabled       = false;
+    protected volatile Boolean                                        cacheEnabled       = false;
     /** 缓存区 */
-    protected    ConcurrentLinkedQueue<AbstractActionInfluxObj> cache;
+    protected          ConcurrentLinkedQueue<AbstractActionInfluxObj> cache;
     /** 缓存区刷新间隔，在缓存区未满时，根据该间隔时间将缓存区数据写入 Influx DB. 最低精度为毫秒 */
     @Setter
     @Getter
-    protected    Duration                                       cacheFlushInterval = Duration.ofSeconds(1);
+    protected          Duration                                       cacheFlushInterval = Duration.ofSeconds(1);
     /** 缓存区数量，达到此数量后将会将缓存区批量插入。 */
     @Setter
     @Getter
-    protected    Long                                           cacheBound         = 1000L;
+    protected          Long                                           cacheBound         = 1000L;
     /** 当前缓存区数量 */
-    protected    Long                                           cacheCount;
+    protected          Long                                           cacheCount;
     /** 缓存插入锁 */
-    protected    ReentrantLock                                  cacheInsertLock;
+    protected          ReentrantLock                                  cacheInsertLock;
     /** 定时任务调度器 */
-    protected    ScheduledThreadPoolExecutor                    scheduledThreadPool;
+    protected          ScheduledThreadPoolExecutor                    scheduledThreadPool;
     /** 定时任务 */
-    protected    ScheduledFuture<?>                             scheduledFuture;
+    protected          ScheduledFuture<?>                             scheduledFuture;
     /** 正在执行的异步插入数据任务 */
-    protected    ConcurrentLinkedQueue<CompletableFuture<Void>> insertTasks;
+    protected          ConcurrentLinkedQueue<CompletableFuture<Void>> insertTasks;
 
     /** 启用缓存区，启动缓存处理定时任务 */
     public void enableCache() {
@@ -93,13 +93,17 @@ public class InfluxClient {
     }
 
     /** 处理缓存区，将缓存区内容保存入 InfluxDB */
-    public synchronized void handleCache() {
+    public CompletableFuture<Void> handleCache() {
+        if (cacheInsertLock == null) {
+            // 锁不存在，则未开启缓存
+            return CompletableFuture.completedFuture(null);
+        }
         cacheInsertLock.lock();
         try {
             // 未启用缓存或缓存列表为空
             if (!cacheEnabled || cache.isEmpty()) {
                 log.debug("【InfluxClient】缓存区未启用或为空，跳过处理");
-                return;
+                return CompletableFuture.completedFuture(null);
             }
             // 临时缓存列表
             ArrayList<? extends AbstractActionInfluxObj> cacheList = new ArrayList<>(cache);
@@ -110,6 +114,7 @@ public class InfluxClient {
             CompletableFuture<Void> future = CompletableFuture.runAsync(() -> this.insertAll(cacheList));
             insertTasks.add(future);
             future.whenComplete((v, t) -> insertTasks.remove(future));
+            return future;
         } finally {
             cacheInsertLock.unlock();
         }
@@ -219,6 +224,30 @@ public class InfluxClient {
         }
     }
 
+    public <T extends AbstractActionInfluxObj> void insertCache(@Nonnull T obj) {
+        // 缓存区大小不合法
+        if (cacheBound <= 0) {
+            insert(obj);
+            return;
+        }
+        // 1. 开启缓存
+        enableCache();
+        cacheInsertLock.lock();
+        try {
+            // 2. 添加至缓存区
+            cache.add(obj);
+            cacheCount++;
+
+            // 3. 如果缓存区已满，则处理缓存区
+            if (cacheCount >= cacheBound) {
+                log.debug("【InfluxClient】缓存数量超过缓存区上限，清空缓存区并插入数据库");
+                handleCache();
+            }
+        } finally {
+            cacheInsertLock.unlock();
+        }
+    }
+
     /**
      * 指定查询构造器，计算其对应的条件构造器对应匹配的数据数量
      *
@@ -248,9 +277,15 @@ public class InfluxClient {
                         .append(" )");
         }
         // 执行查询，获取结果并映射为 Map
-        Map<String, Object> map = InfluxObjMapper.compressToMapList(doQuery(countBuilder.toString(), params),
-                                                                    new LinkedHashSet<>(Set.of("count")))
-                                                 .getFirst();
+        Map<String, Object> map;
+        try {
+            map = InfluxObjMapper.compressToMapList(doQuery(countBuilder.toString(), params),
+                                                    new LinkedHashSet<>(Set.of("count")))
+                                 .getFirst();
+        } catch (Exception e) {
+            throw new InfluxClientQueryException(e);
+        }
+
         Object count = map.get("count");
         if (Number.class.isAssignableFrom(count.getClass())) {
             return ((Number) count).longValue();
@@ -259,17 +294,14 @@ public class InfluxClient {
     }
 
     private Stream<Object[]> doQuery(@Nonnull String sql, @Nullable Map<String, Object> parameters) {
-        try {
-            if (parameters != null) {
-                log.debug("执行查询: {}\n参数集: {}", sql, parameters);
-                return client.query(sql, parameters);
-            }
-            log.debug("执行查询: {}", sql);
-            return client.query(sql);
-        } catch (Exception e) {
-            log.error("【Influx Client】执行查询失败: {}", e.getMessage(), e);
-            throw new InfluxClientQueryException(e);
+        // 在查询前首先处理缓存
+        this.handleCache();
+        if (parameters != null) {
+            log.debug("执行查询: {}\n参数集: {}", sql, parameters);
+            return client.query(sql, parameters);
         }
+        log.debug("执行查询: {}", sql);
+        return client.query(sql);
     }
 
 
@@ -549,11 +581,15 @@ public class InfluxClient {
     public <E extends AbstractBaseInfluxObj, T extends AbstractActionInfluxObj> List<E> queryMap(@Nonnull InfluxQueryWrapper<T> wrapper,
                                                                                                  @Nonnull Class<E> clazz,
                                                                                                  boolean countCheck) {
-        List<Object[]> res = query(wrapper, countCheck).toList();
-        if (res.isEmpty()) {
-            return Collections.emptyList();
+        try {
+            List<Object[]> res = query(wrapper, countCheck).toList();
+            if (res.isEmpty()) {
+                return Collections.emptyList();
+            }
+            return InfluxObjMapper.mapAll(res.stream(), clazz, wrapper);
+        } catch (Exception e) {
+            throw new InfluxClientQueryException(e);
         }
-        return InfluxObjMapper.mapAll(res.stream(), clazz, wrapper);
     }
 
     /**
@@ -574,11 +610,15 @@ public class InfluxClient {
      * @return 查询结果的列表，每个列表项为一个映射，表示查询结果中的各列及其对应的值。
      */
     public List<Map<String, Object>> queryMap(@Nonnull InfluxQueryWrapper<?> wrapper, boolean countCheck) {
-        List<Object[]> res = query(wrapper, countCheck).toList();
-        if (res.isEmpty()) {
-            return Collections.emptyList();
+        try {
+            List<Object[]> res = query(wrapper, countCheck).toList();
+            if (res.isEmpty()) {
+                return Collections.emptyList();
+            }
+            return InfluxObjMapper.compressToMapList(res.stream(), wrapper);
+        } catch (Exception e) {
+            throw new InfluxClientQueryException(e);
         }
-        return InfluxObjMapper.compressToMapList(res.stream(), wrapper);
     }
 
     /**
@@ -589,11 +629,15 @@ public class InfluxClient {
      */
     @Nullable
     public InfluxResult queryResult(@Nonnull InfluxQueryWrapper<?> wrapper) {
-        List<Object[]> res = query(wrapper).toList();
-        if (res.isEmpty()) {
-            return new InfluxResult();
+        try {
+            List<Object[]> res = query(wrapper).toList();
+            if (res.isEmpty()) {
+                return new InfluxResult();
+            }
+            return InfluxObjMapper.mapAllToResult(res.stream(), wrapper.getMixedTargetsWithAlias());
+        } catch (Exception e) {
+            throw new InfluxClientQueryException(e);
         }
-        return InfluxObjMapper.mapAllToResult(res.stream(), wrapper.getMixedTargetsWithAlias());
     }
 
     /**

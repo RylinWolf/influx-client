@@ -450,7 +450,7 @@ SQL 构造器模板，规范 SQL 构建的方法步骤。
 
 提供一系列转换方法，如下：
 
-- map：将一个对象数组转换为指定的类实例。(一个对象数组便是结果集中的一行)
+- map：将一个对象数组转换为指定的类实例。 (一个对象数组便是结果集中的一行)
 - mapAll：将一个对象数组流转为指定的类实例列表（一个对象数组流便是一个完整的结果集）
 
 - compressToMapList：将一个对象数组流压缩为一个映射表的集合，即结果集中的一行对应着一个映射表
@@ -539,7 +539,7 @@ SQL 构造器模板，规范 SQL 构建的方法步骤。
 1. **先检查构建的 line protocol 格式是否正确**
 
 2. 该问题的原因之一是，在首次插入数据时，InfluxDB 会自动进行类型转换。如对于以下 line protocol，
-   `groud_current` 在 Java 程序中设置为 0，则 InfluxDB 客户端对其转换后的类型是**整型**。
+   `groud_current` 在 Java 程序中设置为 0，则 InfluxDB 客户端对其转换后的类型是 **整型**。
     ```
     t_detect_record,level-1=1831217700266381314,nodeId=1831217700266381314,sensorTypeId=6 dataStatus=1i,ground_current=0i,plug_current=0i 1765334351201945000
     ```
@@ -549,6 +549,36 @@ SQL 构造器模板，规范 SQL 构建的方法步骤。
     ```
     t_detect_record,level-1=1831217700266381314,nodeId=1831217700266381314,sensorTypeId=6 dataStatus=1i,ground_current=0.01,plug_current=0.1 1765334299898996171
     ```
-3. 除以上原因，还有可能是 InfluxDB 本身的限制，如同一张表(measurement)中，列数不能超过 500。
-   可以通过调试工具，查看 InfluxDBClient 中生成 `line protocol` 的方法并获取其生成的内容，通过 `curl` 命令行工具，将其发送到
-   InfluxDB，观察返回的错误信息。
+3. 除以上原因，还有可能是 InfluxDB 本身的限制，如同一张表 (measurement)中，列数不能超过 500。 可以通过调试工具，查看
+   InfluxDBClient 中生成 `line protocol` 的方法并获取其生成的内容，通过 `curl` 命令行工具，将其发送到 InfluxDB，观察返回的错误信息。
+
+## 注册中心修改配置后立即生效
+
+InfluxClient 在创建后配置无法修改。要实现通过注册中心修改配置后立刻生效，应当在项目中添加相关的事件监听器，如下：
+
+```java
+
+@Component
+@RequiredArgsConstructor
+@Slf4j
+public class InfluxClientManager {
+    private final InfluxClientProxy  client;
+    private final InfluxDbProperties properties;
+    private final InfluxClientConfig config;
+
+    /** 刷新器，在 nacos 配置发生变更时更新 InfluxClient */
+    @EventListener(EnvironmentChangeEvent.class)
+    public synchronized void onRefresh(EnvironmentChangeEvent event) {
+        Set<String> keys = event.getKeys();
+        if (keys.contains(InfluxClientConfig.CACHE_BOUND_KEY) || keys.contains(InfluxClientConfig.CACHE_FLUSH_INTERVAL_KEY)) {
+            log.info("[InfluxClientManager] 监听到配置变更: {}", keys);
+            properties.setCacheBound(config.getCacheBound());
+            properties.setCacheFlushInterval(config.getCacheFlushInterval());
+            // 刷新客户端
+            this.client.refreshClient(properties);
+        }
+    }
+}
+```
+
+> 应当使用 `InfluxClientProxy` 代理对象而非 `InfluxClient`，否则更新配置将不会生效
