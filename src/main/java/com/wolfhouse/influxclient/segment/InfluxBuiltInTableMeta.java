@@ -1,4 +1,6 @@
-package com.wolfhouse.influxclient.constant;
+package com.wolfhouse.influxclient.segment;
+
+import java.util.List;
 
 /**
  * InfluxDB 内置表信息
@@ -21,14 +23,21 @@ public interface InfluxBuiltInTableMeta {
 
     // region 表信息
     /** 表信息表名 */
-    String TABLE_META_MEASUREMENTS = "information_schema.tables";
+    String TABLE_META_MEASUREMENTS     = "information_schema.tables";
     /** 表信息 - 表名字段名 */
-    String TABLE_META_TABLE_NAME  = "table_name";
+    String TABLE_META_TABLE_NAME       = "table_name";
     /** 表信息 - 表类型字段名 */
-    String TABLE_META_TABLE_TYPE  = "table_type";
+    String TABLE_META_TABLE_TYPE       = "table_type";
     /** 表信息 - 表结构字段名 */
-    String TABLE_META_TABLE_SCHEMA = "table_schema";
+    String TABLE_META_TABLE_SCHEMA     = "table_schema";
     /** 表信息 - 表结构 - iox */
     String TABLE_META_TABLE_SCHEMA_IOX = "iox";
+    // endregion
+
+    // region LVC
+    /** LVC 表名 */
+    String       TABLE_LAST_CACHE         = "system.last_caches";
+    List<String> TABLE_LAST_CACHE_COLUMNS = List.of("table", "name", "key_column_ids", "key_column_names",
+                                                    "value_column_ids", "value_column_names", "count", "ttl");
     // endregion
 }

@@ -1,4 +1,4 @@
-package com.wolfhouse.influxclient.constant.select;
+package com.wolfhouse.influxclient.segment.select;
 
 /**
  * 查询相关特定函数 SQL 枚举

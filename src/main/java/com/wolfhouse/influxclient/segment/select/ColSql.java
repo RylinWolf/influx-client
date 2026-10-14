@@ -1,4 +1,4 @@
-package com.wolfhouse.influxclient.constant.select;
+package com.wolfhouse.influxclient.segment.select;
 
 import lombok.Getter;
 import lombok.experimental.Accessors;

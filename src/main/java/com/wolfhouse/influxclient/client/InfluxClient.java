@@ -2,8 +2,6 @@ package com.wolfhouse.influxclient.client;
 
 import com.influxdb.v3.client.InfluxDBClient;
 import com.wolfhouse.influxclient.comparator.NaturalComparator;
-import com.wolfhouse.influxclient.constant.InfluxBuiltInTableMeta;
-import com.wolfhouse.influxclient.constant.select.AggSql;
 import com.wolfhouse.influxclient.core.InfluxConditionWrapper;
 import com.wolfhouse.influxclient.core.InfluxObjMapper;
 import com.wolfhouse.influxclient.core.InfluxQueryWrapper;
@@ -14,6 +12,10 @@ import com.wolfhouse.influxclient.pojo.AbstractActionInfluxObj;
 import com.wolfhouse.influxclient.pojo.AbstractBaseInfluxObj;
 import com.wolfhouse.influxclient.pojo.InfluxPage;
 import com.wolfhouse.influxclient.pojo.InfluxResult;
+import com.wolfhouse.influxclient.pojo.system.LastCaches;
+import com.wolfhouse.influxclient.segment.InfluxBuiltInTableMeta;
+import com.wolfhouse.influxclient.segment.from.FromSql;
+import com.wolfhouse.influxclient.segment.select.AggSql;
 import jakarta.annotation.PreDestroy;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -470,6 +472,15 @@ public class InfluxClient {
         return maps.stream().map(m -> String.valueOf(m.get(InfluxBuiltInTableMeta.TABLE_META_TABLE_NAME))).toList();
     }
 
+    public List<LastCaches> lvcTables() {
+        return InfluxObjMapper.mapAll(
+                query(InfluxQueryWrapper.system(FromSql.systemLastCache())
+                                        .selectAll()
+                                        .withTime(false)),
+                LastCaches.class,
+                InfluxBuiltInTableMeta.TABLE_LAST_CACHE_COLUMNS);
+    }
+
 
     /**
      * 向指定的 wrapper 中添加查询条件：按照时间排序，最近/最早的一次记录。
@@ -513,7 +524,6 @@ public class InfluxClient {
         return addRecent(parent, true, queryFields);
     }
 
-
     /**
      * 向指定查询构造器中添加条件，用于查询最近的数据。
      * <p>
@@ -554,6 +564,20 @@ public class InfluxClient {
             });
         });
         return dataWrapper;
+    }
+
+    public <T extends AbstractActionInfluxObj> InfluxQueryWrapper<T> addQueryRecentByCache(InfluxQueryWrapper<T> parent, String cacheTable) {
+        InfluxQueryWrapper<T> wrapper = InfluxQueryWrapper.create(FromSql.lastCache(parent.getMeasurement(), cacheTable));
+        wrapper.setMeasurementQuotingDelimiter("")
+               .setConditionWrapper(parent.getConditionWrapper())
+               .setModifiersWrapper(parent.getModifiersWrapper())
+               .setAliasMap(parent.getAliasMap())
+               .setFuncAliasMap(parent.getFuncAliasMap())
+               .setColumnQuotingDelimiter(parent.getColumnQuotingDelimiter())
+               .setFields(parent.getFields())
+               .setTags(parent.getTags())
+               .setWithTime(parent.isWithTime());
+        return wrapper;
     }
 
     /**
@@ -694,7 +718,7 @@ public class InfluxClient {
                    .limit(pageSize, (pageNum - 1) * pageSize + offset);
         }
         // 执行查询，设置结果集
-        page.records(queryMap(wrapper, clazz).stream().toList());
+        page.records(queryMap(wrapper, clazz, false).stream().toList());
         // 当没有进行分页时，更新 page 的分页参数信息
         if (!doPage) {
             page.pageNum(1);

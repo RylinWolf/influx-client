@@ -1,10 +1,10 @@
 package com.wolfhouse.influxclient.core;
 
-import com.wolfhouse.influxclient.constant.InfluxBuiltInTableMeta;
-import com.wolfhouse.influxclient.constant.SqlSegmentType;
 import com.wolfhouse.influxclient.exception.InfluxClientException;
 import com.wolfhouse.influxclient.exception.InfluxClientQueryException;
 import com.wolfhouse.influxclient.pojo.AbstractActionInfluxObj;
+import com.wolfhouse.influxclient.segment.InfluxBuiltInTableMeta;
+import com.wolfhouse.influxclient.segment.SqlSegmentType;
 import io.micrometer.common.util.StringUtils;
 import lombok.Getter;
 

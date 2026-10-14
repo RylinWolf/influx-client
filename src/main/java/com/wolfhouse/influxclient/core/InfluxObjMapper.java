@@ -4,6 +4,7 @@ import com.wolfhouse.influxclient.anno.OtherColumns;
 import com.wolfhouse.influxclient.anno.OverrideColumn;
 import com.wolfhouse.influxclient.pojo.AbstractBaseInfluxObj;
 import com.wolfhouse.influxclient.pojo.InfluxResult;
+import com.wolfhouse.influxclient.typehandler.CollectionTypeHandler;
 import com.wolfhouse.influxclient.typehandler.InfluxTypeHandler;
 import com.wolfhouse.influxclient.typehandler.TypeHandler;
 import lombok.extern.slf4j.Slf4j;
@@ -46,6 +47,10 @@ public class InfluxObjMapper {
      */
     public static <T extends AbstractBaseInfluxObj, Wrapper extends InfluxQueryWrapper<?>> List<T> mapAll(Stream<Object[]> objStream, Class<T> clazz, Wrapper wrapper) {
         return objStream.map(obj -> map(obj, clazz, wrapper.getMixedTargetsWithAlias())).toList();
+    }
+
+    public static <T extends AbstractBaseInfluxObj, Wrapper extends InfluxQueryWrapper<?>> List<T> mapAll(Stream<Object[]> objStream, Class<T> clazz, SequencedCollection<String> targets) {
+        return objStream.map(obj -> map(obj, clazz, targets)).toList();
     }
 
     /**
@@ -199,16 +204,28 @@ public class InfluxObjMapper {
             Class<? extends TypeHandler<?>> handlerClass = annotation.value();
             try {
                 // 从缓存获取或新建 Handler 实例
-                TypeHandler<?> handler = HANDLER_CACHE.computeIfAbsent(handlerClass,
-                                                                       k -> {
-                                                                           try {
-                                                                               return k.getDeclaredConstructor().newInstance();
-                                                                           } catch (Exception e) {
-                                                                               throw new RuntimeException("无法实例化 TypeHandler: " + k.getName(), e);
-                                                                           }
-                                                                       });
+                TypeHandler<?> handler = HANDLER_CACHE.computeIfAbsent(
+                        handlerClass,
+                        k -> {
+                            try {
+                                return k.getDeclaredConstructor().newInstance();
+                            } catch (Exception e) {
+                                throw new RuntimeException("无法实例化 TypeHandler: " + k.getName(), e);
+                            }
+                        });
                 // 执行转换
-                valueToSet = handler.getResult(o);
+                if (handler instanceof CollectionTypeHandler<?>) {
+                    TypeHandler<?> subTypeHandler = HANDLER_CACHE.computeIfAbsent(annotation.subTypeHandler(), k -> {
+                        try {
+                            return k.getDeclaredConstructor().newInstance();
+                        } catch (Exception e) {
+                            throw new RuntimeException("无法实例化 TypeHandler: " + k.getName(), e);
+                        }
+                    });
+                    valueToSet = ((CollectionTypeHandler<?>) handler).getCollection(o, subTypeHandler);
+                } else {
+                    valueToSet = handler.getResult(o);
+                }
             } catch (Exception e) {
                 log.error("TypeHandler 转换失败，字段: {}, Handler: {}", field.getName(), handlerClass.getName(), e);
                 throw new RuntimeException(e);

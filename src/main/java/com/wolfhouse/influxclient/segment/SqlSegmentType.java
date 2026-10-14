@@ -1,4 +1,4 @@
-package com.wolfhouse.influxclient.constant;
+package com.wolfhouse.influxclient.segment;
 
 /**
  * @author Rylin Wolf

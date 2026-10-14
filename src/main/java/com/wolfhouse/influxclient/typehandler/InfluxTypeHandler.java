@@ -15,4 +15,6 @@ public @interface InfluxTypeHandler {
      * 指定使用的 TypeHandler 类
      */
     Class<? extends TypeHandler<?>> value();
+
+    Class<? extends TypeHandler<?>> subTypeHandler() default StringTypeHandler.class;
 }

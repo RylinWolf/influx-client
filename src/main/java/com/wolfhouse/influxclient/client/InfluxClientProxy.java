@@ -8,6 +8,7 @@ import com.wolfhouse.influxclient.pojo.AbstractActionInfluxObj;
 import com.wolfhouse.influxclient.pojo.AbstractBaseInfluxObj;
 import com.wolfhouse.influxclient.pojo.InfluxPage;
 import com.wolfhouse.influxclient.pojo.InfluxResult;
+import com.wolfhouse.influxclient.pojo.system.LastCaches;
 import com.wolfhouse.influxclient.properties.InfluxDbProperties;
 import jakarta.annotation.Nonnull;
 import lombok.Getter;
@@ -307,6 +308,15 @@ public class InfluxClientProxy {
     }
 
     /**
+     * 获取当前数据库下的所有 last-value-caches
+     *
+     * @return 表列表
+     */
+    public List<LastCaches> lvcTables() {
+        return client.lvcTables();
+    }
+
+    /**
      * 向指定的 wrapper 中添加查询条件：按照时间排序，最近/最早的一次记录。
      * <p>
      * 该方法执行完毕后，指定的 wrapper 中会根据特定字段分组，并按照时间排序获取最近/最早的一次记录。
@@ -358,6 +368,18 @@ public class InfluxClientProxy {
                                                                                     boolean desc,
                                                                                     String... queryFields) {
         return client.addQueryRecent(parent, desc, queryFields);
+    }
+
+    /**
+     * 使用缓存表，添加最近查询条件。
+     *
+     * @param parent     父查询器，表示需要添加最近查询功能的查询器。
+     * @param cacheTable 缓存表名称，用于指定最近查询的缓存表。
+     * @param <T>        查询器类型，必须继承自 AbstractActionInfluxObj。
+     * @return 构造完成的查询器，用于执行包含最近数据条件的查询。
+     */
+    public <T extends AbstractActionInfluxObj> InfluxQueryWrapper<T> addQueryRecentByCache(InfluxQueryWrapper<T> parent, String cacheTable) {
+        return client.addQueryRecentByCache(parent, cacheTable);
     }
 
     /**

@@ -1,11 +1,11 @@
 package com.wolfhouse.influxclient.core;
 
 import com.wolfhouse.influxclient.InfluxClientConstant;
-import com.wolfhouse.influxclient.constant.select.ColSql;
 import com.wolfhouse.influxclient.exception.NoSuchTagOrFieldException;
 import com.wolfhouse.influxclient.pojo.AbstractActionInfluxObj;
 import com.wolfhouse.influxclient.pojo.InfluxFields;
 import com.wolfhouse.influxclient.pojo.InfluxTags;
+import com.wolfhouse.influxclient.segment.select.ColSql;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
@@ -164,6 +164,12 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
         wrapper.isLambda = true;
         return wrapper;
     }
+
+    public static <T extends AbstractActionInfluxObj> InfluxQueryWrapper<T> system(@Nonnull String measurement) {
+        InfluxQueryWrapper<T> wrapper = create(measurement);
+        wrapper.setMeasurementQuotingDelimiter("");
+        return wrapper;
+    }
     // endregion
 
     // region 设置方法
@@ -179,6 +185,15 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
     // endregion
 
     // region 构建查询
+
+    /**
+     * 查询所有字段。该方法执行后，列引用标识符将被设置为空字符串，以支持“*”。
+     *
+     * @return 当前 InfluxQueryWrapper 实例，用于支持链式调用。
+     */
+    public InfluxQueryWrapper<T> selectAll() {
+        return setColumnQuotingDelimiter("").select("*");
+    }
 
     /**
      * 设置查询的目标字段列表。
