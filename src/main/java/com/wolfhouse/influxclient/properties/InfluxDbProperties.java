@@ -31,4 +31,7 @@ public class InfluxDbProperties {
 
     /** 缓存区刷新时间间隔(ms), 默认 1 分钟 */
     private Long cacheFlushInterval = Duration.ofMinutes(1).toMillis();
+
+    /** LVC HTTP 连接超时时间 */
+    private Duration lvcTimeout = Duration.ofSeconds(15);
 }

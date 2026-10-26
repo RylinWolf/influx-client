@@ -12,7 +12,6 @@ import com.wolfhouse.influxclient.pojo.AbstractActionInfluxObj;
 import com.wolfhouse.influxclient.pojo.AbstractBaseInfluxObj;
 import com.wolfhouse.influxclient.pojo.InfluxPage;
 import com.wolfhouse.influxclient.pojo.InfluxResult;
-import com.wolfhouse.influxclient.pojo.system.LastCaches;
 import com.wolfhouse.influxclient.segment.InfluxBuiltInTableMeta;
 import com.wolfhouse.influxclient.segment.from.FromSql;
 import com.wolfhouse.influxclient.segment.select.AggSql;
@@ -472,16 +471,6 @@ public class InfluxClient {
         return maps.stream().map(m -> String.valueOf(m.get(InfluxBuiltInTableMeta.TABLE_META_TABLE_NAME))).toList();
     }
 
-    public List<LastCaches> lvcTables() {
-        return InfluxObjMapper.mapAll(
-                query(InfluxQueryWrapper.system(FromSql.systemLastCache())
-                                        .selectAll()
-                                        .withTime(false)),
-                LastCaches.class,
-                InfluxBuiltInTableMeta.TABLE_LAST_CACHE_COLUMNS);
-    }
-
-
     /**
      * 向指定的 wrapper 中添加查询条件：按照时间排序，最近/最早的一次记录。
      * <p>
@@ -566,6 +555,13 @@ public class InfluxClient {
         return dataWrapper;
     }
 
+    /**
+     * 为指定 querywrapper 添加查询最近一次信息的条件，使用 LVC 表优化性能
+     *
+     * @param parent     指定的 QueryWrapper
+     * @param cacheTable LVC 表名
+     * @return
+     */
     public <T extends AbstractActionInfluxObj> InfluxQueryWrapper<T> addQueryRecentByCache(InfluxQueryWrapper<T> parent, String cacheTable) {
         InfluxQueryWrapper<T> wrapper = InfluxQueryWrapper.create(FromSql.lastCache(parent.getMeasurement(), cacheTable));
         wrapper.setMeasurementQuotingDelimiter("")

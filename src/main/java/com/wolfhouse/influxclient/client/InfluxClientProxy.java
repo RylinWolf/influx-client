@@ -8,7 +8,6 @@ import com.wolfhouse.influxclient.pojo.AbstractActionInfluxObj;
 import com.wolfhouse.influxclient.pojo.AbstractBaseInfluxObj;
 import com.wolfhouse.influxclient.pojo.InfluxPage;
 import com.wolfhouse.influxclient.pojo.InfluxResult;
-import com.wolfhouse.influxclient.pojo.system.LastCaches;
 import com.wolfhouse.influxclient.properties.InfluxDbProperties;
 import jakarta.annotation.Nonnull;
 import lombok.Getter;
@@ -37,7 +36,8 @@ public class InfluxClientProxy {
     private InfluxClientProxy() {
     }
 
-    public InfluxClientProxy(@Nonnull InfluxDBClientImpl dbClient, @Nonnull InfluxClient client) {
+    public InfluxClientProxy(@Nonnull InfluxDBClientImpl dbClient,
+                             @Nonnull InfluxClient client) {
         this.influxDbClient = dbClient;
         this.client         = client;
     }
@@ -307,14 +307,6 @@ public class InfluxClientProxy {
         return client.tableNames();
     }
 
-    /**
-     * 获取当前数据库下的所有 last-value-caches
-     *
-     * @return 表列表
-     */
-    public List<LastCaches> lvcTables() {
-        return client.lvcTables();
-    }
 
     /**
      * 向指定的 wrapper 中添加查询条件：按照时间排序，最近/最早的一次记录。

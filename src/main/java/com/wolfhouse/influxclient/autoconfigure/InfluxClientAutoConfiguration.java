@@ -3,6 +3,7 @@ package com.wolfhouse.influxclient.autoconfigure;
 import com.influxdb.v3.client.InfluxDBClient;
 import com.wolfhouse.influxclient.client.InfluxClient;
 import com.wolfhouse.influxclient.client.InfluxClientProxy;
+import com.wolfhouse.influxclient.client.InfluxLvcService;
 import com.wolfhouse.influxclient.properties.InfluxDbProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -11,6 +12,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.DependsOn;
 
 /**
  * InfluxClient及其底层InfluxDB客户端的自动配置。
@@ -29,5 +31,12 @@ public class InfluxClientAutoConfiguration {
     @ConditionalOnMissingBean(InfluxClientProxy.class)
     public InfluxClientProxy influxDbClient(InfluxDbProperties properties) {
         return InfluxClientProxy.instance(properties);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(InfluxLvcService.class)
+    @DependsOn("influxDbClient")
+    public InfluxLvcService influxLvcService(InfluxDbProperties properties, InfluxClientProxy clientProxy) {
+        return new InfluxLvcService(properties, clientProxy.client());
     }
 }

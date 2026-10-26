@@ -13,6 +13,9 @@ import java.util.stream.Collectors;
 public class SetTypeHandler implements CollectionTypeHandler<Set<?>> {
     @Override
     public <T> Set<T> getCollection(Object result, TypeHandler<T> subTypeHandler) {
+        if (result == null) {
+            return Set.of();
+        }
         @SuppressWarnings("rawtypes")
         Set resultSet = ServiceUtils.getObjectMapper().convertValue(result, Set.class);
         //noinspection unchecked
