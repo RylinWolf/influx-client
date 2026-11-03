@@ -135,6 +135,17 @@
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
+            <!-- 打包插件：样例配置仅用于本地开发，不随 jar 发布 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>application.yml</exclude>
+                        <exclude>application-*.yml</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>

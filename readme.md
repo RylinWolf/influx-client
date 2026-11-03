@@ -64,8 +64,6 @@ mvn -DskipTests install
 
 `pom.xml` 里预留了私有仓库地址（`distributionManagement`），团队内使用可改成自己的 Maven 仓库并执行 `mvn deploy`。
 
-> ⚠️ 当前 jar 内打包了 `application.yml` 样例（含 `localhost:8181` 与示例库名）。Spring Boot 项目若自身**没有** `application.yml`，可能读到这份样例配置，导致自动配置被意外激活。使用侧请显式写全 `influx.*`；彻底的做法是把样例移出 `src/main/resources`。
-
 ## 快速开始
 
 ### Spring Boot
@@ -90,6 +88,10 @@ token 为空时工厂返回 `null`，Spring 上下文会启动失败，请确认
 
 ### 非 Spring
 
+脱离 Spring 也有两种建法：只需要读写时直接 `new InfluxClient`；想复用 `influx.*` 配置、配置热刷新与 LVC 时，用 `InfluxClientProxy`。
+
+**方式一：直接使用 `InfluxClient`**
+
 ```java
 InfluxDBClient dbClient = InfluxDBClient.getInstance(
         "http://localhost:8181",
@@ -97,14 +99,55 @@ InfluxDBClient dbClient = InfluxDBClient.getInstance(
         "my_database");
 
 InfluxClient influxClient = new InfluxClient(dbClient);
+influxClient.setCacheBound(1000);                          // 缓存条数上限
+influxClient.setCacheFlushInterval(Duration.ofSeconds(5)); // 缓存刷新间隔
+
+// ... 读写 ...
 
 // 使用结束后释放连接；close() 会先尝试把写入缓存刷盘
 influxClient.close();
 ```
 
+**方式二：使用 `InfluxClientProxy`**
+
+代理会把 `InfluxDbProperties` 中的缓存参数应用到客户端，并在 `refreshClient` 时按新配置重建连接，适合配置来自文件或注册中心的场景。`InfluxClientProxy` 暴露的读写方法与 `InfluxClient` 一致。
+
+```java
+InfluxDbProperties properties = new InfluxDbProperties();
+properties.setUrl("http://localhost:8181");
+properties.setDatabase("my_database");
+properties.setToken(System.getenv("INFLUX_TOKEN"));
+properties.setCacheBound(1000L);
+properties.setCacheFlushInterval(60_000L);   // 毫秒
+
+InfluxClientProxy proxy = InfluxClientProxy.instance(properties);
+if (proxy == null) {
+    throw new IllegalStateException("Influx 客户端初始化失败，请检查 token 与地址");
+}
+
+proxy.insert(data);
+List<SensorRecord> records = proxy.queryMap(wrapper, SensorRecord.class);
+System.out.println("服务端版本: " + proxy.getServerVersion());
+
+// 配置变更后重建连接，旧连接会被关闭
+proxy.refreshClient(properties);
+
+// 释放缓存与底层连接
+proxy.close();
+```
+
+`instance` 在 token 为空或初始化异常时返回 `null`，必须判空。需要自行装配底层实例时，可以用 `newDbClient(properties)` 与 `newClient(dbClient, properties)` 两个静态方法，再构造代理；需要拿到原始的 `InfluxClient` 时调用 `proxy.client()`。
+
+LVC 同样可以脱离 Spring 使用：
+
+```java
+InfluxLvcService lvcService = new InfluxLvcService(properties, proxy);
+lvcService.createLvc("t_sensor_record", List.of("sensor_id"));
+```
+
 非 Spring 环境不要加载 `InfluxClientAutoConfiguration`。核心日志使用 SLF4J，需自行提供 Logback / Log4j2 实现。
 
-直接 `new InfluxClient` 时：缓存上限 1000、刷新间隔 **1 秒**、缓存默认关闭。经 Spring 注入时，刷新间隔取自配置，默认 **1 分钟**。
+缓存默认值因入口而异：直接 `new InfluxClient` 时缓存关闭、刷新间隔 1 秒；经代理创建时取自 `InfluxDbProperties`，其中 `cacheFlushInterval` 默认 60000 毫秒。
 
 ## 核心概念
 
