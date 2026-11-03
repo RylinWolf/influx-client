@@ -7,7 +7,7 @@ import org.springframework.util.CollectionUtils;
 
 import javax.annotation.Nullable;
 import java.util.LinkedHashSet;
-import java.util.Set;
+import java.util.List;
 import java.util.function.Consumer;
 
 /**
@@ -112,7 +112,7 @@ public class InfluxModifiersWrapper<T extends AbstractActionInfluxObj> {
         if (groupBy == null) {
             groupBy = new LinkedHashSet<>();
         }
-        groupBy.addAll(Set.of(columns));
+        groupBy.addAll(List.of(columns));
         return this;
     }
 

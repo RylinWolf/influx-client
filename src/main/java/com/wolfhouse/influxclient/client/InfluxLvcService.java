@@ -35,12 +35,12 @@ import java.util.Map;
 public class InfluxLvcService {
     public static final Integer            HTTP_STATUS_OK      = 200;
     public static final Integer            HTTP_STATUS_CREATED = 201;
-    private final       InfluxClient       client;
+    private final       InfluxClientProxy  client;
     private final       HttpClient         httpClient;
     private final       ObjectMapper       objectMapper;
     private final       InfluxDbProperties properties;
 
-    public InfluxLvcService(InfluxDbProperties properties, InfluxClient client) {
+    public InfluxLvcService(InfluxDbProperties properties, InfluxClientProxy client) {
         this.httpClient   = HttpClient.newBuilder().build();
         this.objectMapper = new ObjectMapper();
         this.properties   = properties;

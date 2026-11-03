@@ -37,6 +37,6 @@ public class InfluxClientAutoConfiguration {
     @ConditionalOnMissingBean(InfluxLvcService.class)
     @DependsOn("influxDbClient")
     public InfluxLvcService influxLvcService(InfluxDbProperties properties, InfluxClientProxy clientProxy) {
-        return new InfluxLvcService(properties, clientProxy.client());
+        return new InfluxLvcService(properties, clientProxy);
     }
 }
