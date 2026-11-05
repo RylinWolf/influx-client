@@ -292,8 +292,8 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
             if (s.length > 1) {
                 alias = s[1].trim();
                 // 使用 as 作为别名分隔符
-                if (alias.startsWith("as")) {
-                    alias = alias.substring(2).trim();
+                if (alias.regionMatches(true, 0, "as ", 0, 3)) {
+                    alias = alias.substring(3).trim();
                 }
             }
             // 添加到别名映射
@@ -314,8 +314,8 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
         builder.append(field.type().seg)
                .append("(");
         // 列
-        Collection<String> cols = field.cols();
-        boolean hasColumns = cols != null && !cols.isEmpty();
+        Collection<String> cols       = field.cols();
+        boolean            hasColumns = cols != null && !cols.isEmpty();
         if (hasColumns) {
             cols.forEach(c -> {
                 builder.append(columnQuotingDelimiter)
@@ -327,7 +327,7 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
         }
         builder.append(")");
         // 2. 处理别名
-        String alias = field.alias();
+        String  alias      = field.alias();
         boolean emptyAlias = alias == null || alias.isEmpty();
         if (emptyAlias) {
             alias = field.type().name() + "_" + String.join("-", field.cols());

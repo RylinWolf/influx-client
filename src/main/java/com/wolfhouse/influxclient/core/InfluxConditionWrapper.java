@@ -83,6 +83,27 @@ public class InfluxConditionWrapper<T extends AbstractActionInfluxObj> {
         return wrapper;
     }
 
+    /**
+     * 复制整体条件并绑定新的查询器，独立维护参数和占位符序号。
+     *
+     * @param parent 副本所属的查询器。
+     * @return 保留原条件优先级的独立副本。
+     */
+    public InfluxConditionWrapper<T> copyFor(InfluxQueryWrapper<T> parent) {
+        InfluxConditionWrapper<T> copy = create();
+        copy.parent = parent;
+        copy.parameters.putAll(parameters);
+        copy.targets.addAll(targets);
+        copy.paramIdx = new AtomicInteger(paramIdx.get());
+
+        // 后续追加 AND 条件时，原有的 OR 分支仍作为一个整体参与过滤
+        String originalSql = sql();
+        if (!originalSql.isBlank()) {
+            copy.builder.append("( ").append(originalSql).append(" )");
+        }
+        return copy;
+    }
+
     // region 连接条件
 
     /**

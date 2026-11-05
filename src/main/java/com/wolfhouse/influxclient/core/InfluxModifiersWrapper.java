@@ -37,6 +37,27 @@ public class InfluxModifiersWrapper<T extends AbstractActionInfluxObj> {
         wrapper.parent = parent;
         return wrapper;
     }
+
+    /**
+     * 复制修饰符并绑定新的查询器，独立维护排序和分组集合。
+     *
+     * @param parent 副本所属的查询器。
+     * @return 保留现有修饰符内容的独立副本。
+     */
+    public InfluxModifiersWrapper<T> copyFor(InfluxQueryWrapper<T> parent) {
+        InfluxModifiersWrapper<T> copy = create(parent);
+        copy.limit = limit;
+        copy.offset = offset;
+        copy.globalDesc = globalDesc;
+        copy.having = having;
+        if (orderBy != null) {
+            copy.orderBy = new LinkedHashSet<>(orderBy);
+        }
+        if (groupBy != null) {
+            copy.groupBy = new LinkedHashSet<>(groupBy);
+        }
+        return copy;
+    }
     // endregion
 
     // region 添加修饰符

@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Stream;
@@ -67,6 +68,9 @@ class InfluxClientRegressionTest {
         InfluxQueryWrapper<?> cached = client.addQueryRecentByCache(recent, "sensor_cache");
         assertTrue(cached.build().contains("WHERE FALSE"));
         assertTrue(client.queryMap(cached, false).isEmpty());
+        InfluxQueryWrapper<?> repeated = client.addQueryRecent(recent, true, "id");
+        assertTrue(repeated.isEmptyResult());
+        assertTrue(client.queryMap(repeated, false).isEmpty());
         verifyNoInteractions(driver);
     }
 
@@ -94,6 +98,65 @@ class InfluxClientRegressionTest {
         assertEquals(1, rows.size());
         assertEquals("matched", rows.getFirst().get("id"));
         assertEquals(1L, rows.getFirst().get("v"));
+    }
+
+    /** 验证回表保留原筛选、原 OR 分支优先级和独立的参数序号。 */
+    @Test
+    void recentRetainsOriginalFilterAsAnIndependentConditionGroup() {
+        InfluxDBClient driver = mock(InfluxDBClient.class);
+        AtomicReference<Map<String, Object>> groupedParameters = new AtomicReference<>();
+        when(driver.query(anyString(), anyMap())).thenAnswer(invocation -> {
+            String sql = invocation.getArgument(0);
+            if (sql.contains("information_schema.columns")) {
+                return Stream.<Object[]>of(new Object[]{"id"}, new Object[]{"time"}, new Object[]{"tenant_id"});
+            }
+            groupedParameters.set(Map.copyOf(invocation.getArgument(1)));
+            return Stream.<Object[]>of(new Object[]{"device-1", "2026-11-05T00:00:00Z"},
+                    new Object[]{"device-2", "2026-11-05T01:00:00Z"});
+        });
+        InfluxClient client = new InfluxClient(driver);
+        InfluxQueryWrapper<?> source = InfluxQueryWrapper.create(MEASUREMENT).select("id");
+        source.where().eq("tenant_id", "tenant-a")
+                .or(condition -> condition.eq("tenant_id", "tenant-b"));
+        String originalSql = source.where().sql();
+        Map<String, Object> originalParameters = Map.copyOf(source.where().getParameters());
+
+        InfluxQueryWrapper<?> recent = client.addQueryRecent(source, true, "id");
+
+        // 1. 回表的原筛选被括号包裹，完整保留 OR 分支的优先级
+        String expectedPrefix = "( " + originalSql + " ) AND (";
+        assertTrue(recent.where().sql().startsWith(expectedPrefix));
+        assertEquals("tenant-a", recent.where().getParameters().get("param_1"));
+        assertEquals("tenant-b", recent.where().getParameters().get("param_2"));
+        assertTrue(recent.where().getParameters().containsValue("device-1"));
+        assertTrue(recent.where().getParameters().containsValue("device-2"));
+        assertEquals(originalParameters, groupedParameters.get());
+
+        // 2. 回表追加参数不会改变原查询，再次使用原查询仍从原序号继续
+        assertNotSame(source.where(), recent.where());
+        assertSame(recent, recent.where().parent());
+        assertEquals(originalSql, source.where().sql());
+        assertEquals(originalParameters, source.where().getParameters());
+        source.where().eq("source_only", "kept");
+        assertEquals("kept", source.where().getParameters().get("param_3"));
+        assertFalse(recent.where().getParameters().containsValue("kept"));
+    }
+
+    /** 验证原查询没有条件时，仍能按匹配到的最近记录构造回表条件。 */
+    @Test
+    void recentWithoutOriginalFilterStillRestrictsMatchedRecords() {
+        InfluxDBClient driver = mock(InfluxDBClient.class);
+        when(driver.query(anyString())).thenAnswer(invocation ->
+                Stream.<Object[]>of(new Object[]{"device-1", "2026-11-05T00:00:00Z"}));
+        when(driver.query(anyString(), anyMap())).thenAnswer(invocation ->
+                Stream.<Object[]>of(new Object[]{"id"}, new Object[]{"time"}));
+        InfluxClient client = new InfluxClient(driver);
+
+        InfluxQueryWrapper<?> recent = client.addQueryRecent(InfluxQueryWrapper.create(MEASUREMENT), true, "id");
+
+        assertFalse(recent.isEmptyResult());
+        assertTrue(recent.build().contains("WHERE"));
+        assertTrue(recent.where().getParameters().containsValue("device-1"));
     }
 
     /** 验证失败任务在后续成功刷写后仍保留在跟踪队列中。 */

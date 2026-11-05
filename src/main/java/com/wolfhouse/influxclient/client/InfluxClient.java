@@ -3,6 +3,7 @@ package com.wolfhouse.influxclient.client;
 import com.influxdb.v3.client.InfluxDBClient;
 import com.wolfhouse.influxclient.comparator.NaturalComparator;
 import com.wolfhouse.influxclient.core.InfluxConditionWrapper;
+import com.wolfhouse.influxclient.core.InfluxModifiersWrapper;
 import com.wolfhouse.influxclient.core.InfluxObjMapper;
 import com.wolfhouse.influxclient.core.InfluxQueryWrapper;
 import com.wolfhouse.influxclient.core.PointBuilder;
@@ -547,8 +548,12 @@ public class InfluxClient {
                                                                                     String... queryFields) {
         // 构造最近查询
         InfluxQueryWrapper<T> wrapper = InfluxQueryWrapper.create(parent.getMeasurement());
-        // 添加条件
-        wrapper.setConditionWrapper(parent.getConditionWrapper());
+        wrapper.setEmptyResult(parent.isEmptyResult());
+        // 分组查询使用原条件的独立副本，避免修改原查询的参数序号
+        InfluxConditionWrapper<T> originalConditions = parent.getConditionWrapper();
+        if (originalConditions != null) {
+            wrapper.setConditionWrapper(originalConditions.copyFor(wrapper));
+        }
         // 查询最近记录
         List<Map<String, Object>> recent = this.queryMap(addRecent(wrapper, desc, queryFields), false);
 
@@ -560,40 +565,54 @@ public class InfluxClient {
         }
         // 添加所有目标列
         addQueryAll(dataWrapper);
+        // 回表时保留完整原条件，避免匹配到其他租户或其他筛选范围的记录
+        if (originalConditions != null) {
+            dataWrapper.setConditionWrapper(originalConditions.copyFor(dataWrapper));
+        }
         InfluxConditionWrapper<?> where = dataWrapper.where();
-        // 从结果中，提取字段并保存为条件
-        recent.forEach(m -> {
-            // 移除最近时间别名字段，使用时间字段代替
+        // 所有最近记录组成一个 OR 条件组，再与原条件整体通过 AND 连接
+        where.and(records -> recent.forEach(m -> {
             Object recentTime = m.remove(RECENT_TIME_FIELD);
-            where.or(w -> {
+            records.or(record -> {
                 m.forEach((k, v) -> {
-                    w.eq(k, String.valueOf(v));
+                    record.eq(k, String.valueOf(v));
                 });
-                w.eq(TIMESTAMP_FIELD, recentTime.toString());
+                record.eq(TIMESTAMP_FIELD, recentTime.toString());
             });
-        });
+        }));
         return dataWrapper;
     }
 
     /**
-     * 为指定 querywrapper 添加查询最近一次信息的条件，使用 LVC 表优化性能
+     * 根据指定查询器创建独立的 LVC 查询器，保留选列、条件和修饰符内容。
      *
      * @param parent     指定的 QueryWrapper
      * @param cacheTable LVC 表名
-     * @return
+     * @return 条件和修饰符均绑定到自身的 LVC 查询器。
      */
     public <T extends AbstractActionInfluxObj> InfluxQueryWrapper<T> addQueryRecentByCache(InfluxQueryWrapper<T> parent, String cacheTable) {
+        // 1. 初始化 LVC 来源并独立复制可变的选列映射
         InfluxQueryWrapper<T> wrapper = InfluxQueryWrapper.create(FromSql.lastCache(parent.getMeasurement(), cacheTable));
         wrapper.setMeasurementQuotingDelimiter("")
-               .setConditionWrapper(parent.getConditionWrapper())
-               .setModifiersWrapper(parent.getModifiersWrapper())
-               .setAliasMap(parent.getAliasMap())
-               .setFuncAliasMap(parent.getFuncAliasMap())
+               .setAliasMap(new LinkedHashMap<>(parent.getAliasMap()))
+               .setFuncAliasMap(new LinkedHashMap<>(parent.getFuncAliasMap()))
                .setColumnQuotingDelimiter(parent.getColumnQuotingDelimiter())
                .setFields(parent.getFields())
                .setTags(parent.getTags())
                .setEmptyResult(parent.isEmptyResult())
                .setWithTime(parent.isWithTime());
+
+        // 2. 复制条件和参数序号，让后续链式调用使用新的查询器
+        InfluxConditionWrapper<T> conditions = parent.getConditionWrapper();
+        if (conditions != null) {
+            wrapper.setConditionWrapper(conditions.copyFor(wrapper));
+        }
+
+        // 3. 复制修饰符，确保链式构建和 HAVING 参数绑定到 LVC 查询器
+        InfluxModifiersWrapper<T> modifiers = parent.getModifiersWrapper();
+        if (modifiers != null) {
+            wrapper.setModifiersWrapper(modifiers.copyFor(wrapper));
+        }
         return wrapper;
     }
 
