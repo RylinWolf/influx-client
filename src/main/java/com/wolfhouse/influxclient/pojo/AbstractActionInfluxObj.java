@@ -25,6 +25,11 @@ public abstract class AbstractActionInfluxObj extends AbstractBaseInfluxObj {
     /** InfluxDB的字段集合，用于存储字段数据 */
     protected InfluxFields fields;
 
+    {
+        tags   = InfluxTags.instance();
+        fields = InfluxFields.instance();
+    }
+
     protected AbstractActionInfluxObj() {
         super();
     }

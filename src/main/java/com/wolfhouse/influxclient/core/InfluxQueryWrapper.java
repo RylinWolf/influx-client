@@ -10,8 +10,6 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.util.CollectionUtils;
-import org.springframework.util.StringUtils;
 
 import javax.annotation.Nonnull;
 import java.util.*;
@@ -35,6 +33,8 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
     private boolean                       isLambda                    = false;
     /** 控制查询结果是否包含时间戳字段 */
     private boolean                       withTime                    = true;
+    /** 是否已确定没有匹配结果，执行查询时直接返回空内容 */
+    private boolean                       emptyResult                 = false;
     /** 当前查询的目标表（measurement）名称 */
     private String                        measurement;
     /** 当前查询关联的映射对象引用，提供表结构信息 */
@@ -187,7 +187,12 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
     // region 构建查询
 
     /**
-     * 查询所有字段。该方法执行后，列引用标识符将被设置为空字符串，以支持“*”。
+     * 生成 SELECT * 查询，供底层客户端通过列元数据读取 Map 结果。
+     * 列引用标识符将被设置为空字符串，以支持“*”。
+     * <p>
+     * Map 结果可通过 {@link com.influxdb.v3.client.InfluxDBClient#queryRows(String)} 读取。
+     * 本方法不展开实际列名，POJO 映射前应使用
+     * {@link com.wolfhouse.influxclient.client.InfluxClient#addQueryAll(InfluxQueryWrapper)} 明确查询列。
      *
      * @return 当前 InfluxQueryWrapper 实例，用于支持链式调用。
      */
@@ -310,7 +315,8 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
                .append("(");
         // 列
         Collection<String> cols = field.cols();
-        if (!CollectionUtils.isEmpty(cols)) {
+        boolean hasColumns = cols != null && !cols.isEmpty();
+        if (hasColumns) {
             cols.forEach(c -> {
                 builder.append(columnQuotingDelimiter)
                        .append(c)
@@ -322,7 +328,8 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
         builder.append(")");
         // 2. 处理别名
         String alias = field.alias();
-        if (!StringUtils.hasLength(alias)) {
+        boolean emptyAlias = alias == null || alias.isEmpty();
+        if (emptyAlias) {
             alias = field.type().name() + "_" + String.join("-", field.cols());
         }
         funcAliasMap.put(builder.toString(), alias);
@@ -450,8 +457,15 @@ public class InfluxQueryWrapper<T extends AbstractActionInfluxObj> extends BaseS
     protected void buildCondition(StringBuilder builder) {
         // 初始化查询条件
         this.isConditioned = false;
+        // 空结果查询即使直接使用生成的 SQL，也必须保持无匹配语义
+        if (emptyResult) {
+            builder.append(" WHERE FALSE");
+            this.isConditioned = true;
+            return;
+        }
         // 处理查询条件
-        if (this.conditionWrapper != null && !this.conditionWrapper.getParameters().isEmpty()) {
+        boolean hasConditions = this.conditionWrapper != null && !this.conditionWrapper.sql().isBlank();
+        if (hasConditions) {
             // 验证查询条件字段是否存在
             validSelectFields(this.conditionWrapper.getTargets());
             // 添加查询条件

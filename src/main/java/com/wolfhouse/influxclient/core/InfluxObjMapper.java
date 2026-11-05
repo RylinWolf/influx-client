@@ -127,9 +127,14 @@ public class InfluxObjMapper {
                 // 字段的覆盖注解优先级高于类
                 OverrideColumn fieldOverAnno = field.getAnnotation(OverrideColumn.class);
                 fieldOverAnno = fieldOverAnno == null ? classOverrideColumnAnno : fieldOverAnno;
+                // 默认保留已有初值，仅通过字段或类上的注解显式允许覆盖
+                Object defaultValue = field.get(t);
+                boolean preserveDefault = defaultValue != null && fieldOverAnno == null;
+                if (preserveDefault) {
+                    continue;
+                }
                 // 如果有注解，检查是否有初始值，有则检查是否忽略 null，是则检查要覆盖的值
                 if (fieldOverAnno != null) {
-                    Object defaultValue = field.get(t);
                     if (defaultValue != null && fieldOverAnno.ignoreNull()) {
                         Object valueToSet = handleType(o, field);
                         if (valueToSet != null) {

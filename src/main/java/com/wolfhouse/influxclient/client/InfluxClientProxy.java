@@ -28,10 +28,12 @@ import java.util.stream.Stream;
 @Slf4j
 @SuppressWarnings({"unused"})
 public class InfluxClientProxy {
+    /** 当前封装客户端，刷新后向代理调用方发布新实例 */
     @Getter
     @Accessors(fluent = true)
-    private InfluxClient       client;
-    private InfluxDBClientImpl influxDbClient;
+    private volatile InfluxClient       client;
+    /** 当前底层连接，刷新后向代理调用方发布新实例 */
+    private volatile InfluxDBClientImpl influxDbClient;
 
     private InfluxClientProxy() {
     }
@@ -97,13 +99,33 @@ public class InfluxClientProxy {
     public void refreshClient(@Nonnull InfluxDbProperties properties) {
         synchronized (this) {
             log.debug("[InfluxClient] 刷新客户端");
+
+            // 1. 完整创建新连接与封装客户端，创建失败时保留旧实例
+            InfluxDBClientImpl newDbClient = newDbClient(properties);
+            InfluxClient newClient;
             try {
-                this.client.close();
+                newClient = newClient(newDbClient, properties);
+            } catch (RuntimeException e) {
+                // 封装客户端失败时释放刚创建的底层连接
+                try {
+                    newDbClient.close();
+                } catch (Exception closeException) {
+                    e.addSuppressed(closeException);
+                }
+                throw e;
+            }
+
+            // 2. 发布新实例，让后续代理调用使用新连接
+            InfluxClient oldClient = this.client;
+            this.influxDbClient = newDbClient;
+            this.client = newClient;
+
+            // 3. 关闭旧客户端并刷写其缓存
+            try {
+                oldClient.close();
             } catch (Exception e) {
                 log.error("关闭 InfluxClient 实例时发生错误", e);
             }
-            this.influxDbClient = newDbClient(properties);
-            this.client         = newClient(this.influxDbClient, properties);
             log.info("[InfluxClient] 客户端刷新完成");
         }
     }
@@ -493,9 +515,9 @@ public class InfluxClientProxy {
     }
 
     /**
-     * 判断所有异步插入任务是否已完成
+     * 判断所有异步插入任务是否已成功完成
      *
-     * @return true: 所有任务已完成，false: 有任务未完成
+     * @return true: 所有任务已成功完成，false: 有任务执行中或写入失败
      */
     public boolean isInsertTaskAllDone() {
         return client.isInsertTaskAllDone();

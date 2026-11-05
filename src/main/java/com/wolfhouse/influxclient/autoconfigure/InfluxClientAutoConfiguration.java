@@ -12,7 +12,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.DependsOn;
 
 /**
  * InfluxClient及其底层InfluxDB客户端的自动配置。
@@ -35,7 +34,6 @@ public class InfluxClientAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(InfluxLvcService.class)
-    @DependsOn("influxDbClient")
     public InfluxLvcService influxLvcService(InfluxDbProperties properties, InfluxClientProxy clientProxy) {
         return new InfluxLvcService(properties, clientProxy);
     }

@@ -5,7 +5,6 @@ import com.wolfhouse.influxclient.exception.InfluxClientQueryException;
 import com.wolfhouse.influxclient.pojo.AbstractActionInfluxObj;
 import com.wolfhouse.influxclient.segment.InfluxBuiltInTableMeta;
 import com.wolfhouse.influxclient.segment.SqlSegmentType;
-import io.micrometer.common.util.StringUtils;
 import lombok.Getter;
 
 import java.time.Instant;
@@ -97,10 +96,17 @@ public class InfluxConditionWrapper<T extends AbstractActionInfluxObj> {
      * @return 当前 ConditionWrapper 实例
      */
     public InfluxConditionWrapper<T> and(Consumer<InfluxConditionWrapper<T>> consumer, boolean condition) {
+        if (!condition) {
+            return this;
+        }
         String currentSql = builder.toString().trim().toUpperCase();
         if (currentSql.isBlank()) {
+            String nestedSql = mayDo(true, consumer, null);
+            if (nestedSql.isBlank()) {
+                return this;
+            }
             builder.append(" ( ")
-                   .append(mayDo(condition, consumer, null))
+                   .append(nestedSql)
                    .append(" ) ");
             return this;
         }
@@ -127,12 +133,20 @@ public class InfluxConditionWrapper<T extends AbstractActionInfluxObj> {
      * @return 当前 ConditionWrapper 实例
      */
     public InfluxConditionWrapper<T> or(Consumer<InfluxConditionWrapper<T>> consumer, boolean condition) {
+        if (!condition) {
+            return this;
+        }
         String currentSql = builder.toString().trim();
-        if (StringUtils.isBlank(currentSql)
+        boolean startsGroup = currentSql.isBlank()
                 || currentSql.toUpperCase().endsWith(SqlSegmentType.OR.value)
-                || currentSql.endsWith("(")) {
+                || currentSql.endsWith("(");
+        if (startsGroup) {
+            String nestedSql = mayDo(true, consumer, null);
+            if (nestedSql.isBlank()) {
+                return this;
+            }
             builder.append(" ( ")
-                   .append(mayDo(condition, consumer, null))
+                   .append(nestedSql)
                    .append(" ) ");
         }
         builder.append(mayDo(condition, consumer, SqlSegmentType.OR));
@@ -415,13 +429,18 @@ public class InfluxConditionWrapper<T extends AbstractActionInfluxObj> {
         }
         InfluxConditionWrapper<T> instance = create(this.parent);
         consumer.accept(instance);
+        // 嵌套条件全部被跳过时，不生成连接符和空括号
+        String nestedSql = instance.sql();
+        if (nestedSql.isBlank()) {
+            return "";
+        }
         // 获取并添加匿名 wrapper 的处理结果
         this.targets.addAll(instance.targets);
         this.parameters.putAll(instance.parameters);
         if (sqlSegment == null) {
-            return instance.sql();
+            return nestedSql;
         }
-        return " %s (%s)".formatted(sqlSegment.value, instance.sql());
+        return " %s (%s)".formatted(sqlSegment.value, nestedSql);
     }
 
     /**

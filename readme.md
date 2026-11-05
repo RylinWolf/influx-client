@@ -252,7 +252,7 @@ wrapper.modify()
 | `duration(start, end)` | 时间区间，作用于 `time` 列 |
 | `and` / `or` | 嵌套条件，接收 `Consumer` |
 | `orderBy` / `groupBy` / `limit` / `offset` | 查询修饰符 |
-| `having` | 聚合后的过滤，**必须先调用过 `where()`** |
+| `having` | 聚合后的过滤，可独立于 `where()` 使用 |
 
 多列 `orderBy`、`groupBy` 都按传入顺序生成 SQL；`groupBy` 的重复列名会被自动去重。
 

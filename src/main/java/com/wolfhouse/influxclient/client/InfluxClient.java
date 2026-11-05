@@ -62,7 +62,7 @@ public class InfluxClient {
     protected          ScheduledThreadPoolExecutor                    scheduledThreadPool;
     /** 定时任务 */
     protected          ScheduledFuture<?>                             scheduledFuture;
-    /** 正在执行的异步插入数据任务 */
+    /** 正在执行或写入失败的异步插入数据任务 */
     protected          ConcurrentLinkedQueue<CompletableFuture<Void>> insertTasks;
 
     /** 启用缓存区，启动缓存处理定时任务 */
@@ -114,7 +114,12 @@ public class InfluxClient {
             // 异步执行插入任务
             CompletableFuture<Void> future = CompletableFuture.runAsync(() -> this.insertAll(cacheList));
             insertTasks.add(future);
-            future.whenComplete((v, t) -> insertTasks.remove(future));
+            // 仅成功任务退出跟踪队列，失败任务保留供调用方检查
+            future.whenComplete((v, t) -> {
+                if (t == null) {
+                    insertTasks.remove(future);
+                }
+            });
             return future;
         } finally {
             cacheInsertLock.unlock();
@@ -257,6 +262,10 @@ public class InfluxClient {
      * @return 匹配的数据数量
      */
     public <T extends AbstractActionInfluxObj> Long count(@Nonnull InfluxQueryWrapper<T> wrapper) {
+        // 已确定为空的查询无需访问数据库计数
+        if (wrapper.isEmptyResult()) {
+            return 0L;
+        }
         // 获取条件构造器
         InfluxConditionWrapper<T> conditions = wrapper.getConditionWrapper();
         if (conditions == null) {
@@ -279,8 +288,8 @@ public class InfluxClient {
         }
         // 执行查询，获取结果并映射为 Map
         Map<String, Object> map;
-        try {
-            map = InfluxObjMapper.compressToMapList(doQuery(countBuilder.toString(), params),
+        try (Stream<Object[]> results = doQuery(countBuilder.toString(), params)) {
+            map = InfluxObjMapper.compressToMapList(results,
                                                     new LinkedHashSet<>(Set.of("count")))
                                  .getFirst();
         } catch (Exception e) {
@@ -325,6 +334,7 @@ public class InfluxClient {
      * @param sql        执行的SQL查询语句，定义了要检索的数据。
      * @param parameters 查询的参数集合，以键值对的形式提供参数和值，用于填充SQL语句中的占位符。
      * @return 包含查询结果的流，每个结果是一个包含列值的数组。
+     *         调用方使用完毕后应关闭该流，释放底层查询资源。
      */
     public Stream<Object[]> query(@Nonnull String sql, @Nullable Map<String, Object> parameters) {
         return doQuery(sql, parameters);
@@ -337,6 +347,7 @@ public class InfluxClient {
      *
      * @param wrapper 查询条件包装器，用于构建查询语句和获取查询参数。
      * @return 查询结果的流，每个结果为一个包含列值的数组。
+     *         调用方使用完毕后应关闭该流，释放底层查询资源。
      */
     public Stream<Object[]> query(@Nonnull InfluxQueryWrapper<?> wrapper) {
         return query(wrapper, true);
@@ -350,8 +361,13 @@ public class InfluxClient {
      * @param wrapper    查询条件包装器，用于构建查询语句和获取查询参数。
      * @param countCheck 是否进行计数检查，如果为true，则在执行查询前检查计数是否为 0，为 0 则返回空流。
      * @return 查询结果的流，每个结果为一个包含列值的数组。
+     *         调用方使用完毕后应关闭该流，释放底层查询资源。
      */
     public Stream<Object[]> query(@Nonnull InfluxQueryWrapper<?> wrapper, boolean countCheck) {
+        // 即使关闭计数检查，也应直接返回已确定的空结果
+        if (wrapper.isEmptyResult()) {
+            return Stream.empty();
+        }
         if (countCheck && count(wrapper) < 1) {
             return Stream.empty();
         }
@@ -538,6 +554,10 @@ public class InfluxClient {
 
         // 初始化完整查询器
         InfluxQueryWrapper<T> dataWrapper = InfluxQueryWrapper.create(parent.getMeasurement());
+        // 分组无匹配记录时直接返回空查询，避免无条件回表
+        if (recent.isEmpty()) {
+            return dataWrapper.select(TIMESTAMP_FIELD).setEmptyResult(true);
+        }
         // 添加所有目标列
         addQueryAll(dataWrapper);
         InfluxConditionWrapper<?> where = dataWrapper.where();
@@ -572,6 +592,7 @@ public class InfluxClient {
                .setColumnQuotingDelimiter(parent.getColumnQuotingDelimiter())
                .setFields(parent.getFields())
                .setTags(parent.getTags())
+               .setEmptyResult(parent.isEmptyResult())
                .setWithTime(parent.isWithTime());
         return wrapper;
     }
@@ -601,8 +622,8 @@ public class InfluxClient {
     public <E extends AbstractBaseInfluxObj, T extends AbstractActionInfluxObj> List<E> queryMap(@Nonnull InfluxQueryWrapper<T> wrapper,
                                                                                                  @Nonnull Class<E> clazz,
                                                                                                  boolean countCheck) {
-        try {
-            List<Object[]> res = query(wrapper, countCheck).toList();
+        try (Stream<Object[]> results = query(wrapper, countCheck)) {
+            List<Object[]> res = results.toList();
             if (res.isEmpty()) {
                 return Collections.emptyList();
             }
@@ -630,8 +651,8 @@ public class InfluxClient {
      * @return 查询结果的列表，每个列表项为一个映射，表示查询结果中的各列及其对应的值。
      */
     public List<Map<String, Object>> queryMap(@Nonnull InfluxQueryWrapper<?> wrapper, boolean countCheck) {
-        try {
-            List<Object[]> res = query(wrapper, countCheck).toList();
+        try (Stream<Object[]> results = query(wrapper, countCheck)) {
+            List<Object[]> res = results.toList();
             if (res.isEmpty()) {
                 return Collections.emptyList();
             }
@@ -649,8 +670,8 @@ public class InfluxClient {
      */
     @Nullable
     public InfluxResult queryResult(@Nonnull InfluxQueryWrapper<?> wrapper) {
-        try {
-            List<Object[]> res = query(wrapper).toList();
+        try (Stream<Object[]> results = query(wrapper)) {
+            List<Object[]> res = results.toList();
             if (res.isEmpty()) {
                 return new InfluxResult();
             }
@@ -696,7 +717,9 @@ public class InfluxClient {
                long pageSize,
                long offset) {
         // 验证分页参数
-        assert pageNum > 0 && pageSize > 0 : "分页参数配置有误，必须大于等于 0";
+        if (pageNum < 0 || pageSize < 0) {
+            throw new IllegalArgumentException("分页参数配置有误，必须大于等于 0");
+        }
         // 构建分页结果
         InfluxPage<E> page = InfluxPage.<E>builder()
                                        .total(count(wrapper))
@@ -747,9 +770,9 @@ public class InfluxClient {
     }
 
     /**
-     * 判断所有异步插入任务是否已完成
+     * 判断所有异步插入任务是否已成功完成
      *
-     * @return true: 所有任务已完成，false: 有任务未完成
+     * @return true: 所有任务已成功完成，false: 有任务执行中或写入失败
      */
     public boolean isInsertTaskAllDone() {
         return insertTasks.isEmpty();

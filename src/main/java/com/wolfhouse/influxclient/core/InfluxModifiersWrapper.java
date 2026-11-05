@@ -3,7 +3,6 @@ package com.wolfhouse.influxclient.core;
 import com.wolfhouse.influxclient.pojo.AbstractActionInfluxObj;
 import lombok.Getter;
 import lombok.Setter;
-import org.springframework.util.CollectionUtils;
 
 import javax.annotation.Nullable;
 import java.util.LinkedHashSet;
@@ -116,12 +115,20 @@ public class InfluxModifiersWrapper<T extends AbstractActionInfluxObj> {
         return this;
     }
 
+    /**
+     * 添加聚合后过滤条件，允许查询没有 WHERE 条件。
+     *
+     * @param wrapperConsumer 聚合后过滤条件的构造逻辑。
+     * @return 当前修饰符构造器。
+     */
     public InfluxModifiersWrapper<T> having(Consumer<InfluxConditionWrapper<T>> wrapperConsumer) {
+        // 保留独立的 WHERE 条件容器，仅共享占位符和参数
+        InfluxConditionWrapper<T> conditions = this.parent.where();
         // 创建子条件构造器，用于构造 having 条件
         InfluxConditionWrapper<T> wrapper = InfluxConditionWrapper.create(this.parent);
         wrapperConsumer.accept(wrapper);
-        // 合并子条件构造器的参数至主要条件构造器
-        this.parent.getConditionWrapper().combineParamsFrom(wrapper);
+        // 仅合并参数，聚合别名不参与 WHERE 字段校验
+        conditions.getParameters().putAll(wrapper.getParameters());
         String havingCondition = wrapper.sql();
         if (this.having == null) {
             this.having = havingCondition;
@@ -150,7 +157,8 @@ public class InfluxModifiersWrapper<T extends AbstractActionInfluxObj> {
     }
 
     protected void buildGroupBy(StringBuilder builder) {
-        if (CollectionUtils.isEmpty(groupBy)) {
+        boolean emptyGroupBy = groupBy == null || groupBy.isEmpty();
+        if (emptyGroupBy) {
             return;
         }
         builder.append(" GROUP BY ")

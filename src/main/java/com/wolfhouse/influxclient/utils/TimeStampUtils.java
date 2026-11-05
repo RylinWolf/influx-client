@@ -1,143 +1,101 @@
 package com.wolfhouse.influxclient.utils;
 
-import lombok.extern.slf4j.Slf4j;
-
-import java.time.*;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 
 /**
- * 时间戳工具
+ * 时间戳工具，支持秒、毫秒和纳秒精度。
  *
- * @author rylinwolf
+ * @author Rylin Wolf
  */
-@Slf4j
 public class TimeStampUtils {
+    /** 每秒包含的纳秒数 */
+    private static final long NANOS_PER_SECOND = 1_000_000_000L;
+    /** 常见毫秒时间戳的绝对值下界 */
+    private static final long AUTO_MILLIS_MIN = 100_000_000_000L;
+    /** 自动识别允许的毫秒时间戳绝对值上界，不包含该值 */
+    private static final long AUTO_MILLIS_LIMIT = 100_000_000_000_000L;
+    /** 常见纳秒时间戳的绝对值下界 */
+    private static final long AUTO_NANOS_MIN = 100_000_000_000_000_000L;
+    /** 独立运行示例使用的纳秒时间戳 */
+    private static final long EXAMPLE_NANOS = 1_764_910_799_518_328_000L;
+    /** 北京时间使用的时区 */
+    private static final ZoneId BEIJING_ZONE = ZoneId.of("Asia/Shanghai");
+    /** 北京时间的毫秒级显示格式 */
+    private static final DateTimeFormatter BEIJING_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
     /**
-     * 将各种精度的时间戳转换为 Instant
+     * 按明确指定的秒、毫秒或纳秒精度转换。
      *
-     * @param timestamp 时间戳
-     * @param unit      时间单位
-     * @return Instant
+     * @param timestamp 时间戳。
+     * @param unit 时间单位。
+     * @return 对应的时间点。
      */
     public static Instant toInstant(long timestamp, ChronoUnit unit) {
         return switch (unit) {
-            case NANOS -> Instant.ofEpochSecond(
-                    timestamp / 1_000_000_000L,
-                    timestamp % 1_000_000_000L
-            );
-            case MICROS -> Instant.ofEpochSecond(
-                    timestamp / 1_000_000L,
-                    (timestamp % 1_000_000L) * 1_000L
-            );
+            case NANOS -> Instant.ofEpochSecond(timestamp / NANOS_PER_SECOND, timestamp % NANOS_PER_SECOND);
             case MILLIS -> Instant.ofEpochMilli(timestamp);
             case SECONDS -> Instant.ofEpochSecond(timestamp);
-            default -> throw new IllegalArgumentException("【TimestampUtils】不支持的 ChronoUnit: " + unit);
+            default -> throw new IllegalArgumentException("【TimeStampUtils】仅支持秒、毫秒和纳秒，当前单位为 " + unit);
         };
     }
 
     /**
-     * 自动检测并转换
+     * 按常见时间戳的数量级识别秒、毫秒或纳秒，不支持微秒。
+     * 低数值的历史时间戳应通过 {@link #toInstant(long, ChronoUnit)} 指定精度。
+     *
+     * @param timestamp 待识别的时间戳。
+     * @return 对应的时间点。
      */
     public static Instant autoConvert(long timestamp) {
-        //log.debug("【TimestampUtils】转换时间: {}, 结果: {}", timestamp, formatInstant(instant))
-        //log.debug("【TimestampUtils】对应北京时间: {}", formatInBeijing(instant))
-        return detectAndConvert(timestamp);
-    }
-
-    private static Instant detectAndConvert(long timestamp) {
-        // 根据数值范围判断
-        if (timestamp >= 1_000_000_000_000_000_000L) {
-            // >= 1e18
-            // 19位数字，应该是纳秒
+        boolean nanoseconds = timestamp >= AUTO_NANOS_MIN || timestamp <= -AUTO_NANOS_MIN;
+        if (nanoseconds) {
             return toInstant(timestamp, ChronoUnit.NANOS);
-        } else if (timestamp >= 1_000_000_000_000_000L) {
-            // >= 1e15
-            // 16位数字，可能是纳秒或微秒
-            return tryBoth(timestamp);
-        } else if (timestamp >= 1_000_000_000_000L) {
-            // >= 1e12
-            // 13位数字，通常是毫秒
+        }
+
+        boolean unsupportedRange = timestamp >= AUTO_MILLIS_LIMIT || timestamp <= -AUTO_MILLIS_LIMIT;
+        if (unsupportedRange) {
+            throw new IllegalArgumentException("【TimeStampUtils】不支持微秒，其他时间戳请明确指定秒、毫秒或纳秒精度");
+        }
+
+        boolean milliseconds = timestamp >= AUTO_MILLIS_MIN || timestamp <= -AUTO_MILLIS_MIN;
+        if (milliseconds) {
             return toInstant(timestamp, ChronoUnit.MILLIS);
-        } else if (timestamp >= 1_000_000_000L) {
-            // >= 1e9
-            // 10位数字，通常是秒
-            return toInstant(timestamp, ChronoUnit.SECONDS);
-        } else {
-            throw new IllegalArgumentException("【TimestampUtils】无法识别的时间戳: " + timestamp);
         }
-    }
-
-    private static Instant tryBoth(long timestamp) {
-        // 尝试纳秒
-        Instant       nanosInstant = toInstant(timestamp, ChronoUnit.NANOS);
-        LocalDateTime nanosTime    = LocalDateTime.ofInstant(nanosInstant, ZoneOffset.UTC);
-
-        // 尝试微秒
-        Instant       microsInstant = toInstant(timestamp, ChronoUnit.MICROS);
-        LocalDateTime microsTime    = LocalDateTime.ofInstant(microsInstant, ZoneOffset.UTC);
-
-        // 选择合理的年份
-        int nanosYear  = nanosTime.getYear();
-        int microsYear = microsTime.getYear();
-
-        if (nanosYear >= 1970 && nanosYear <= 2200) {
-            return nanosInstant;
-        } else if (microsYear >= 1970 && microsYear <= 2200) {
-            return microsInstant;
-        } else {
-            throw new IllegalArgumentException("【TimestampUtils】无法确定时间戳单位: " + timestamp);
-        }
+        return toInstant(timestamp, ChronoUnit.SECONDS);
     }
 
     /**
-     * 格式化显示
+     * 格式化为 ISO 时间文本。
+     *
+     * @param instant 待格式化的时间点。
+     * @return ISO 时间文本。
      */
     public static String formatInstant(Instant instant) {
         return DateTimeFormatter.ISO_INSTANT.format(instant);
     }
 
     /**
-     * 转换为北京时间
+     * 格式化为北京时间。
+     *
+     * @param instant 待格式化的时间点。
+     * @return 精确到毫秒的北京时间文本。
      */
     public static String formatInBeijing(Instant instant) {
-        ZoneId        beijingZone = ZoneId.of("Asia/Shanghai");
-        ZonedDateTime beijingTime = instant.atZone(beijingZone);
-        return DateTimeFormatter
-                .ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
-                .format(beijingTime);
+        return BEIJING_FORMAT.format(instant.atZone(BEIJING_ZONE));
     }
 
     /**
-     * 主方法测试
+     * 独立运行时展示纳秒时间戳的转换结果。
+     *
+     * @param args 命令行参数。
      */
     public static void main(String[] args) {
-        long timestamp = 1764910799518328000L;
-
-        System.out.println("原始时间戳: " + timestamp);
-        System.out.println("时间戳长度: " + String.valueOf(timestamp).length() + " 位");
-
-        // 尝试不同单位的转换
-        System.out.println("\n=== 不同单位的转换结果 ===");
-
-        // 纳秒转换
-        Instant nanosInstant = toInstant(timestamp, ChronoUnit.NANOS);
-        System.out.println("作为纳秒: " + formatInstant(nanosInstant));
-        System.out.println("  北京时间: " + formatInBeijing(nanosInstant));
-
-        // 微秒转换
-        Instant microsInstant = toInstant(timestamp, ChronoUnit.MICROS);
-        System.out.println("\n作为微秒: " + formatInstant(microsInstant));
-        System.out.println("  北京时间: " + formatInBeijing(microsInstant));
-
-        // 毫秒转换
-        Instant millisInstant = toInstant(timestamp, ChronoUnit.MILLIS);
-        System.out.println("\n作为毫秒: " + formatInstant(millisInstant));
-        System.out.println("  北京时间: " + formatInBeijing(millisInstant));
-
-        // 自动检测
-        System.out.println("\n=== 自动检测结果 ===");
-        autoConvert(timestamp);
+        Instant instant = toInstant(EXAMPLE_NANOS, ChronoUnit.NANOS);
+        System.out.println("纳秒时间戳 " + EXAMPLE_NANOS);
+        System.out.println("ISO 时间 " + formatInstant(instant));
+        System.out.println("北京时间 " + formatInBeijing(instant));
     }
 }

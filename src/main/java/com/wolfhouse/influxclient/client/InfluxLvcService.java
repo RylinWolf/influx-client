@@ -10,7 +10,6 @@ import com.wolfhouse.influxclient.segment.from.FromSql;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
-import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import javax.annotation.Nonnull;
@@ -24,6 +23,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 /**
  * Last-value-cache
@@ -124,12 +124,12 @@ public class InfluxLvcService {
      * @return List<{@link LastCaches}> LVC 表集合
      */
     public List<LastCaches> lvcTables() {
-        return InfluxObjMapper.mapAll(
-                client.query(InfluxQueryWrapper.system(FromSql.systemLastCache())
-                                               .selectAll()
-                                               .withTime(false)),
-                LastCaches.class,
-                InfluxBuiltInTableMeta.TABLE_LAST_CACHE_COLUMNS);
+        InfluxQueryWrapper<?> wrapper = InfluxQueryWrapper.system(FromSql.systemLastCache())
+                                                         .selectAll()
+                                                         .withTime(false);
+        try (Stream<Object[]> results = client.query(wrapper)) {
+            return InfluxObjMapper.mapAll(results, LastCaches.class, InfluxBuiltInTableMeta.TABLE_LAST_CACHE_COLUMNS);
+        }
     }
 
     private HttpRequest.Builder requestBuilder() {
@@ -144,7 +144,8 @@ public class InfluxLvcService {
         Map<String, Object> map = HashMap.newHashMap(6);
         // 表、标签不得为空
         Assert.hasText(measurement, "measurement 不得为空");
-        if (CollectionUtils.isEmpty(keyColumns)) {
+        boolean emptyKeyColumns = keyColumns == null || keyColumns.isEmpty();
+        if (emptyKeyColumns) {
             throw new IllegalArgumentException("keyColumns 不能为空");
         }
         // 初始化 lvc 表名
@@ -154,7 +155,8 @@ public class InfluxLvcService {
         map.put("name", name);
         map.put("key_columns", keyColumns);
         // 缓存字段列允许为空
-        if (!CollectionUtils.isEmpty(valueColumns)) {
+        boolean hasValueColumns = valueColumns != null && !valueColumns.isEmpty();
+        if (hasValueColumns) {
             map.put("value_columns", valueColumns);
         }
         // count 默认为 1
